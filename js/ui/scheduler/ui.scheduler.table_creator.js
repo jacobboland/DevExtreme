@@ -109,12 +109,12 @@ const SchedulerTableCreator = {
                 row.appendChild(td);
             }
 
+            tableBody.appendChild(row);
+
             if(allDayElements && isLastRowInGroup) {
                 this.insertAllDayRow(allDayElements, tableBody, allDayElementIndex);
                 allDayElementIndex++;
             }
-
-            tableBody.appendChild(row);
         }
 
         $(options.container).append(tableBody);
