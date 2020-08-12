@@ -34,8 +34,6 @@ const SchedulerTableCreator = {
         const groupIndex = options.groupIndex;
         const rowCount = options.rowCount;
 
-        $(options.container).append(tableBody);
-
         if(allDayElements) {
             this.insertAllDayRow(allDayElements, tableBody, 0);
             allDayElementIndex++;
@@ -43,7 +41,6 @@ const SchedulerTableCreator = {
 
         for(let i = 0; i < rowCount; i++) {
             row = domAdapter.createElement(ROW_SELECTOR);
-            tableBody.appendChild(row);
 
             const isLastRowInGroup = (i + 1) % rowCountInGroup === 0;
 
@@ -53,7 +50,6 @@ const SchedulerTableCreator = {
 
             for(let j = 0; j < options.cellCount; j++) {
                 const td = domAdapter.createElement('td');
-                row.appendChild(td);
 
                 if(options.cellClass) {
                     if(typeUtils.isFunction(options.cellClass)) {
@@ -62,7 +58,6 @@ const SchedulerTableCreator = {
                         td.className = options.cellClass;
                     }
                 }
-
 
                 var cellDataObject;
                 var dataKey;
@@ -110,13 +105,19 @@ const SchedulerTableCreator = {
                         td.innerHTML = '<div>' + options.getCellText(i, j) + '</div>';
                     }
                 }
+
+                row.appendChild(td);
             }
 
             if(allDayElements && isLastRowInGroup) {
                 this.insertAllDayRow(allDayElements, tableBody, allDayElementIndex);
                 allDayElementIndex++;
             }
+
+            tableBody.appendChild(row);
         }
+
+        $(options.container).append(tableBody);
 
         return templateCallbacks;
     },
