@@ -700,7 +700,7 @@ class SchedulerWorkSpace extends WidgetObserver {
         this._renderView();
     }
 
-    _init() {
+    _init: function() {
         this._headerSemaphore = new ScrollSemaphore();
         this._sideBarSemaphore = new ScrollSemaphore();
         this._dataTableSemaphore = new ScrollSemaphore();
@@ -896,7 +896,8 @@ class SchedulerWorkSpace extends WidgetObserver {
             useKeyboard: false,
             bounceEnabled: false,
             updateManually: true,
-            pushBackValue: 0
+            pushBackValue: 0,
+            useNative: true
         };
         if(this._needCreateCrossScrolling()) {
             config = extend(config, this._createCrossScrollingConfig());
@@ -980,7 +981,7 @@ class SchedulerWorkSpace extends WidgetObserver {
             useKeyboard: false,
             showScrollbar: false,
             direction: 'horizontal',
-            useNative: false,
+            useNative: true,
             updateManually: true,
             bounceEnabled: false,
             pushBackValue: 0,
@@ -1086,10 +1087,10 @@ class SchedulerWorkSpace extends WidgetObserver {
     }
 
     _dimensionChanged() {
+        this._cleanCachedDimensions();
         if(this.option('crossScrollingEnabled')) {
             this._setTableSizes();
         }
-
         this.headerPanelOffsetRecalculate();
 
         this.cache.clear();
@@ -2324,7 +2325,6 @@ class SchedulerWorkSpace extends WidgetObserver {
             if(this._needCreateCrossScrolling()) {
                 return getBoundingRect(this._$dateTable.get(0)).width;
             }
-
             return getBoundingRect(this.$element().get(0)).width - this.getTimePanelWidth();
         });
     }
@@ -2799,7 +2799,6 @@ class SchedulerWorkSpace extends WidgetObserver {
 
     getAllDayHeight() {
         const cell = this._getCells(true).first().get(0);
-
         return this._isShowAllDayPanel() ? cell && getBoundingRect(cell).height || 0 : 0;
     }
 

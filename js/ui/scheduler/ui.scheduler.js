@@ -72,6 +72,7 @@ const WIDGET_ADAPTIVE_CLASS = `${WIDGET_CLASS}-adaptive`;
 const WIDGET_WIN_NO_TOUCH_CLASS = `${WIDGET_CLASS}-win-no-touch`;
 const WIDGET_READONLY_CLASS = `${WIDGET_CLASS}-readonly`;
 const WIDGET_SMALL_WIDTH = 400;
+const NEED_REFRESH_OF_APPOINTMENTS_WIDTH = 2500;
 
 const FULL_DATE_FORMAT = 'yyyyMMddTHHmmss';
 const UTC_FULL_DATE_FORMAT = FULL_DATE_FORMAT + 'Z';
@@ -1175,9 +1176,10 @@ class Scheduler extends Widget {
             this._workSpace.option('allDayExpanded', this._isAllDayExpanded(filteredItems));
             this._workSpace._dimensionChanged();
 
-            const appointments = this._layoutManager.createAppointmentsMap(filteredItems);
-
-            this._appointments.option('items', appointments);
+            if (this._workSpace._getWorkSpaceWidth() <= NEED_REFRESH_OF_APPOINTMENTS_WIDTH) {
+                const appointments = this._layoutManager.createAppointmentsMap(filteredItems);
+                this._appointments.option('items', appointments);
+            }
         }
 
         this.hideAppointmentTooltip();
