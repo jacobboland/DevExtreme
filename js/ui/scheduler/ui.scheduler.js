@@ -67,7 +67,6 @@ const WIDGET_READONLY_CLASS = `${WIDGET_CLASS}-readonly`;
 const RECURRENCE_EDITOR_ITEM_CLASS = `${WIDGET_CLASS}-recurrence-rule-item`;
 const RECURRENCE_EDITOR_OPENED_ITEM_CLASS = `${WIDGET_CLASS}-recurrence-rule-item-opened`;
 const WIDGET_SMALL_WIDTH = 400;
-const NEED_REFRESH_OF_APPOINTMENTS_WIDTH = 2500;
 
 const FULL_DATE_FORMAT = 'yyyyMMddTHHmmss';
 const UTC_FULL_DATE_FORMAT = FULL_DATE_FORMAT + 'Z';
@@ -1138,7 +1137,7 @@ const Scheduler = Widget.inherit({
 
     _dimensionChanged: function() {
         const filteredItems = this.getFilteredItems();
-
+        this._schedulerWidth = null;
         this._toggleSmallClass();
 
         if(!this._isAgenda() && filteredItems && this._isVisible()) {
@@ -1146,7 +1145,7 @@ const Scheduler = Widget.inherit({
             this._workSpace.option('allDayExpanded', this._isAllDayExpanded(filteredItems));
             this._workSpace._dimensionChanged();
 
-            if (this._workSpace._getWorkSpaceWidth() <= NEED_REFRESH_OF_APPOINTMENTS_WIDTH) {
+            if (this._workSpace._getWorkSpaceWidth() <= this._getSchedulerWidth()) {
                 const appointments = this._layoutManager.createAppointmentsMap(filteredItems);
                 this._appointments.option('items', appointments);
             }
@@ -1158,13 +1157,21 @@ const Scheduler = Widget.inherit({
         this._appointmentPopup.updatePopupFullScreenMode();
     },
 
+    _getSchedulerWidth: function () {
+        if (!this._schedulerWidth) {
+            this._schedulerWidth = (0, _position.getBoundingRect)(this.$element().get(0)).width;
+        }
+        return this._schedulerWidth;
+    },
+
     _clean: function() {
+        this._schedulerWidth = null;
         this._cleanPopup();
         this.callBase();
     },
 
     _toggleSmallClass: function() {
-        const width = getBoundingRect(this.$element().get(0)).width;
+        const width = this._getSchedulerWidth();
         this.$element().toggleClass(WIDGET_SMALL_CLASS, width < WIDGET_SMALL_WIDTH);
     },
 
@@ -1815,6 +1822,7 @@ const Scheduler = Widget.inherit({
     },
 
     _cleanWorkspace: function() {
+        this._schedulerWidth = null;
         this._appointments.$element().detach();
         this._workSpace._dispose();
         this._workSpace.$element().remove();
