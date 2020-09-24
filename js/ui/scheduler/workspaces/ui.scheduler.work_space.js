@@ -1010,7 +1010,7 @@ class SchedulerWorkSpace extends WidgetObserver {
             useKeyboard: false,
             showScrollbar: false,
             direction: 'vertical',
-            useNative: false,
+            useNative: true,
             updateManually: true,
             bounceEnabled: false,
             pushBackValue: 0,
