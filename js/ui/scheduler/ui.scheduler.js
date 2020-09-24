@@ -1159,7 +1159,7 @@ const Scheduler = Widget.inherit({
 
     _getSchedulerWidth: function () {
         if (!this._schedulerWidth) {
-            this._schedulerWidth = (0, _position.getBoundingRect)(this.$element().get(0)).width;
+            this._schedulerWidth = getBoundingRect(this.$element().get(0)).width;
         }
         return this._schedulerWidth;
     },
