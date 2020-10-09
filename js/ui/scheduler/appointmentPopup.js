@@ -10,8 +10,8 @@ import { triggerResizeEvent } from '../../events/visibility_change';
 import messageLocalization from '../../localization/message';
 import { isEmptyObject } from '../../core/utils/type';
 import Popup from '../popup';
-import { APPOINTMENT_FORM_GROUP_NAMES, AppointmentForm } from './ui.scheduler.appointment_form';
-import loading from './ui.loading';
+import { AppointmentForm } from './ui.scheduler.appointment_form';
+import { hide as hideLoading, show as showLoading } from './ui.loading';
 
 const toMs = dateUtils.dateToMilliseconds;
 
@@ -211,26 +211,12 @@ export default class AppointmentPopup {
             this.scheduler.fire('setField', 'endDate', formData, endDate);
         }
 
-        const { startDateExpr, endDateExpr, recurrenceRuleExpr } = this.scheduler._dataAccessors.expr;
-
-        const recurrenceEditorOptions = this._getEditorOptions(recurrenceRuleExpr, APPOINTMENT_FORM_GROUP_NAMES.Recurrence);
-        this._setEditorOptions(recurrenceRuleExpr, APPOINTMENT_FORM_GROUP_NAMES.Recurrence, extend({}, recurrenceEditorOptions, { startDate: startDate }));
+        const { startDateExpr, endDateExpr } = this.scheduler._dataAccessors.expr;
 
         this._appointmentForm.option('readOnly', this._isReadOnly(data));
 
-        AppointmentForm.updateFormData(this._appointmentForm, formData);
+        AppointmentForm.updateFormData(this._appointmentForm, formData, this.scheduler._dataAccessors.expr);
         AppointmentForm.setEditorsType(this._appointmentForm, startDateExpr, endDateExpr, allDay);
-    }
-
-    _getEditorOptions(name, groupName) {
-        const editor = this._appointmentForm.itemOption(`${groupName}.${name}`);
-        return editor ? editor.editorOptions : {};
-    }
-
-    _setEditorOptions(name, groupName, options) {
-        const editorPath = `${groupName}.${name}`;
-        const editor = this._appointmentForm.itemOption(editorPath);
-        editor && this._appointmentForm.itemOption(editorPath, 'editorOptions', options);
     }
 
     _isDeviceMobile() {
@@ -384,13 +370,13 @@ export default class AppointmentPopup {
     }
 
     _hideLoadPanel() {
-        loading.hide();
+        hideLoading();
     }
 
     _showLoadPanel() {
         const $overlayContent = this._popup.overlayContent();
 
-        loading.show({
+        showLoading({
             container: $overlayContent,
             position: {
                 of: $overlayContent

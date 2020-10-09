@@ -226,6 +226,15 @@ export default class dxHtmlEditor extends Editor {
      */
     getLength(): number;
     /**
+     * @docid dxHtmlEditorMethods.getModule
+     * @publicName getModule(moduleName)
+     * @param1 moduleName:string
+     * @return Object
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    getModule(moduleName: string): any;
+    /**
      * @docid dxHtmlEditorMethods.getQuillInstance
      * @publicName getQuillInstance()
      * @return Object
@@ -307,7 +316,7 @@ export interface dxHtmlEditorMediaResizing {
     /**
      * @docid dxHtmlEditorMediaResizing.allowedTargets
      * @type Array<string>
-     * @default ["images"]
+     * @default ["image"]
      * @prevFileNamespace DevExpress.ui
      * @public
      */

@@ -3,15 +3,15 @@ import eventsEngine from '../events/core/events_engine';
 import devices from '../core/devices';
 import registerComponent from '../core/component_registrator';
 import Button from './button';
-import inkRipple from './widget/utils.ink_ripple';
-import { addNamespace } from '../events/utils';
+import { render } from './widget/utils.ink_ripple';
+import { addNamespace } from '../events/utils/index';
 import { extend } from '../core/utils/extend';
 import { isPlainObject } from '../core/utils/type';
 import pointerEvents from '../events/pointer';
 import { each } from '../core/utils/iterator';
 import TabsItem from './tabs/item';
 import { TABS_EXPANDED_CLASS } from './tabs/constants';
-import themes from './themes';
+import { isMaterial, current as currentTheme } from './themes';
 import holdEvent from '../events/hold';
 import Scrollable from './scroll_view/ui.scrollable';
 import { default as CollectionWidget } from './collection/ui.collection_widget.live_update';
@@ -90,7 +90,7 @@ const Tabs = CollectionWidget.inherit({
     },
 
     _defaultOptionsRules: function() {
-        const themeName = themes.current();
+        const themeName = currentTheme();
 
         return this.callBase().concat([
             {
@@ -117,7 +117,7 @@ const Tabs = CollectionWidget.inherit({
             },
             {
                 device: function() {
-                    return themes.isMaterial(themeName);
+                    return isMaterial(themeName);
                 },
                 options: {
                     useInkRipple: true,
@@ -273,7 +273,7 @@ const Tabs = CollectionWidget.inherit({
     },
 
     _renderInkRipple: function() {
-        this._inkRipple = inkRipple.render();
+        this._inkRipple = render();
     },
 
     _toggleActiveState: function($element, value, e) {

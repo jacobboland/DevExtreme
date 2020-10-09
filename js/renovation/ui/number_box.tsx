@@ -1,15 +1,22 @@
 import {
-  Ref, Effect, Component, ComponentBindings, JSXComponent, OneWay, Event, TwoWay, Method,
+  Ref, Component, ComponentBindings, JSXComponent, OneWay, Event, TwoWay, Method, React,
 } from 'devextreme-generator/component_declaration/common';
 /* eslint-disable-next-line import/named */
-import DxNumberBox, { Options } from '../../ui/number_box';
+import LegacyNumberBox from '../../ui/number_box';
 import { WidgetProps } from './common/widget';
+import { DomComponentWrapper } from './common/dom_component_wrapper';
+import { EventCallback } from './common/event_callback.d';
 
-export const viewFunction = ({ widgetRef, props: { className }, restAttributes }: NumberBox) => (
-  <div
-    ref={widgetRef as any}
-    className={className}
-    // eslint-disable-next-line react/jsx-props-no-spreading
+export const viewFunction = ({
+  rootElementRef,
+  props,
+  restAttributes,
+}: NumberBox): JSX.Element => (
+  <DomComponentWrapper
+    rootElementRef={rootElementRef as any}
+    componentType={LegacyNumberBox}
+    componentProps={props}
+  // eslint-disable-next-line react/jsx-props-no-spreading
     {...restAttributes}
   />
 );
@@ -37,9 +44,9 @@ export class NumberBoxProps extends WidgetProps {
 
   @OneWay() useLargeSpinButtons?: boolean;
 
-  @TwoWay() value?: number;
+  @TwoWay() value: number | null = 0;
 
-  @Event() valueChange?: ((value: number) => void) = () => {};
+  @Event() valueChange?: EventCallback<number>;
 }
 
 @Component({
@@ -48,28 +55,10 @@ export class NumberBoxProps extends WidgetProps {
 })
 export class NumberBox extends JSXComponent(NumberBoxProps) {
   @Ref()
-  widgetRef!: HTMLDivElement;
+  rootElementRef!: HTMLDivElement;
 
   @Method()
   getHtmlElement(): HTMLDivElement {
-    return this.widgetRef;
-  }
-
-  @Effect()
-  updateWidget(): void {
-    const widget = DxNumberBox.getInstance(this.widgetRef);
-    widget?.option(this.properties);
-  }
-
-  @Effect({ run: 'once' })
-  setupWidget(): () => void {
-    const widget = new DxNumberBox(this.widgetRef, this.properties);
-
-    return (): void => widget.dispose();
-  }
-
-  get properties(): Options {
-    const { valueChange, ...restProps } = this.props;
-    return ({ ...restProps, onValueChanged: ({ value }) => valueChange!(value) }) as Options;
+    return this.rootElementRef;
   }
 }

@@ -2,14 +2,14 @@ import { enumParser, normalizeEnum, patchFontOptions } from '../core/utils';
 import { extend } from '../../core/utils/extend';
 import { LayoutElement, WrapperLayoutElement } from '../core/layout_element';
 import { isDefined, isFunction } from '../../core/utils/type';
-import title from '../core/title';
+import { Title } from '../core/title';
 import { clone } from '../../core/utils/object';
 import { noop } from '../../core/utils/common';
 import { processHatchingAttrs, getFuncIri } from '../core/renderers/renderer';
 ///#DEBUG
 import { debug } from '../../core/utils/console';
 ///#ENDDEBUG
-import { Deferred, when } from '../../core/utils/deferred';
+import { Deferred } from '../../core/utils/deferred';
 
 const _Number = Number;
 
@@ -367,7 +367,6 @@ export let Legend = function(settings) {
     that._allowInsidePosition = settings.allowInsidePosition;
     that._widget = settings.widget;
 
-    that._asyncFirstDrawing = true;
     that._updated = false;
 };
 
@@ -424,7 +423,7 @@ extend(legendPrototype, {
         };
 
         if(that.isVisible() && !that._title) {
-            that._title = new title.Title({ renderer: that._renderer, cssClass: that._titleGroupClass, root: that._legendGroup });
+            that._title = new Title({ renderer: that._renderer, cssClass: that._titleGroupClass, root: that._legendGroup });
         }
 
         if(that._title) {
@@ -447,8 +446,6 @@ extend(legendPrototype, {
         // TODO check multiple groups creation
         const that = this;
         const items = that._getItemData();
-
-        that._isAsyncRendering = false;
 
         that.erase();
 
@@ -565,16 +562,12 @@ extend(legendPrototype, {
                 renderMarker(state) {
                     dataItem.marker = getAttributes(item, state, dataItem.size);
                     markerGroup.clear();
-                    let isRendered = false;
                     template.render({
-                        model: dataItem, container: markerGroup.element, onRendered: () => {
-                            isRendered = true;
-                            deferredItems[i].resolve();
-                        }
+                        model: dataItem,
+                        container: markerGroup.element,
+                        onRendered: deferredItems[i].resolve
                     });
-                    if(!isRendered && markerGroup.element.childNodes.length === 0) {
-                        that._isAsyncRendering = true;
-                    }
+
                 }
             };
 
@@ -589,18 +582,12 @@ extend(legendPrototype, {
             return item;
         });
 
-        when.apply(this, deferredItems).done(() => {
-            if(that._isAsyncRendering) {
-                const changes = ['LAYOUT', 'FULL_RENDER'];
-                if(that._asyncFirstDrawing) {
-                    changes.push('FORCE_FIRST_DRAWING');
-                    that._asyncFirstDrawing = false;
-                } else {
-                    changes.push('FORCE_DRAWING');
-                }
-                that._widget._requestChange(changes);
-            }
+        that._widget._addToDeferred({
+            items: deferredItems,
+            launchRequest() {},
+            doneRequest() {}
         });
+
     },
 
     _getItemData: function() {

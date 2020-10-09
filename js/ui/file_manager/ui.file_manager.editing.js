@@ -60,17 +60,21 @@ class FileManagerEditingControl extends Widget {
         const $fileUploader = $('<div>').appendTo(this.$element());
         return this._createComponent($fileUploader, this._getFileUploaderComponent(), {
             getController: this._getFileUploaderController.bind(this),
+            dropZonePlaceholderContainer: this.option('uploadDropZonePlaceholderContainer'),
             onUploadSessionStarted: e => this._onUploadSessionStarted(e),
             onUploadProgress: e => this._onUploadProgress(e)
         });
     }
 
+    setUploaderDropZone($element) {
+        this._fileUploader.option('dropZone', $element);
+    }
+
     _getFileUploaderController() {
-        const uploadDirectory = this._uploadDirectoryInfo && this._uploadDirectoryInfo.fileItem;
         return {
             chunkSize: this._controller.getFileUploadChunkSize(),
-            uploadFileChunk: (fileData, chunksInfo) => this._controller.uploadFileChunk(fileData, chunksInfo, uploadDirectory),
-            abortFileUpload: (fileData, chunksInfo) => this._controller.abortFileUpload(fileData, chunksInfo, uploadDirectory)
+            uploadFileChunk: (fileData, chunksInfo) => this._controller.uploadFileChunk(fileData, chunksInfo, this.uploadDirectoryInfo?.fileItem),
+            abortFileUpload: (fileData, chunksInfo) => this._controller.abortFileUpload(fileData, chunksInfo, this.uploadDirectoryInfo?.fileItem)
         };
     }
 
@@ -188,7 +192,7 @@ class FileManagerEditingControl extends Widget {
     }
 
     _onUploadSessionStarted({ sessionInfo }) {
-        this._controller.processUploadSession(sessionInfo, this._uploadDirectoryInfo);
+        this._controller.processUploadSession(sessionInfo, this.uploadDirectoryInfo);
     }
 
     _onEditActionStarting(actionInfo) {
@@ -197,10 +201,19 @@ class FileManagerEditingControl extends Widget {
         const operationInfo = this._notificationControl.addOperation(context.processingMessage, actionMetadata.allowCancel, !actionMetadata.allowItemProgress);
         extend(actionInfo.customData, { context, operationInfo });
 
-        if(actionInfo.name === 'upload') {
-            const sessionId = actionInfo.customData.sessionInfo.sessionId;
-            operationInfo.uploadSessionId = sessionId;
-            this._uploadOperationInfoMap[sessionId] = operationInfo;
+        switch(actionInfo.name) {
+            case 'upload':
+                {
+                    const sessionId = actionInfo.customData.sessionInfo.sessionId;
+                    operationInfo.uploadSessionId = sessionId;
+                    this._uploadOperationInfoMap[sessionId] = operationInfo;
+                }
+                break;
+            case 'rename':
+                actionInfo.customData.context.itemNewName = actionInfo.customData.itemNewName;
+                break;
+            default:
+                break;
         }
     }
 
@@ -274,7 +287,7 @@ class FileManagerEditingControl extends Widget {
     }
 
     _tryUpload(destinationFolder) {
-        this._uploadDirectoryInfo = destinationFolder && destinationFolder[0] || this._getCurrentDirectory();
+        this._uploadDirectoryInfo = destinationFolder?.[0];
         this._fileUploader.tryUpload();
     }
 
@@ -308,7 +321,8 @@ class FileManagerEditingControl extends Widget {
 
     _handleSingleRequestActionError(operationInfo, context, errorInfo) {
         const itemInfo = context.getItemForSingleRequestError();
-        const errorText = this._getErrorText(errorInfo, itemInfo);
+        const itemName = context.itemNewName;
+        const errorText = this._getErrorText(errorInfo, itemInfo, itemName);
 
         context.processSingleRequestError(errorText);
         const operationErrorInfo = this._getOperationErrorInfo(context);
@@ -338,12 +352,12 @@ class FileManagerEditingControl extends Widget {
         };
     }
 
-    _getErrorText(errorInfo, itemInfo) {
-        const itemName = itemInfo ? itemInfo.fileItem.name : null;
+    _getErrorText(errorInfo, itemInfo, itemName) {
+        itemName = itemName || itemInfo?.fileItem.name;
         const errorText = FileManagerMessages.get(errorInfo.errorId, itemName);
 
         const errorArgs = {
-            fileSystemItem: itemInfo ? itemInfo.fileItem : null,
+            fileSystemItem: itemInfo?.fileItem,
             errorCode: errorInfo.errorId,
             errorText
         };
@@ -416,6 +430,9 @@ class FileManagerEditingControl extends Widget {
                 break;
             case 'getItemThumbnail':
                 break;
+            case 'uploadDropZonePlaceholderContainer':
+                this._fileUploader.option('dropZonePlaceholderContainer', args.value);
+                break;
             case 'onSuccess':
             case 'onError':
             case 'onCreating':
@@ -438,6 +455,10 @@ class FileManagerEditingControl extends Widget {
         return this._controller.getCurrentDirectory();
     }
 
+    get uploadDirectoryInfo() {
+        return this._uploadDirectoryInfo || this._getCurrentDirectory();
+    }
+
 }
 
 class FileManagerActionContext {
@@ -457,6 +478,7 @@ class FileManagerActionContext {
         this._commonProgress = 0;
 
         this._errorState = { failedCount: 0 };
+        this._itemNewName = '';
     }
 
     completeOperationItem(itemIndex) {
@@ -517,6 +539,14 @@ class FileManagerActionContext {
 
     get itemInfos() {
         return this._itemInfos;
+    }
+
+    get itemNewName() {
+        return this._itemNewName;
+    }
+
+    set itemNewName(value) {
+        this._itemNewName = value;
     }
 
     get errorState() {

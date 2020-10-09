@@ -2,23 +2,24 @@ import $ from '../core/renderer';
 import eventsEngine from '../events/core/events_engine';
 import { getWindow } from '../core/utils/window';
 const window = getWindow();
-import support from '../core/utils/support';
+import { nativeScrolling } from '../core/utils/support';
 import { noop } from '../core/utils/common';
 import { getPublicElement } from '../core/element';
 import { each } from '../core/utils/iterator';
 import { extend } from '../core/utils/extend';
-import inkRipple from './widget/utils.ink_ripple';
+import { render } from './widget/utils.ink_ripple';
 import messageLocalization from '../localization/message';
 import devices from '../core/devices';
 import registerComponent from '../core/component_registrator';
-import { addNamespace } from '../events/utils';
+import { addNamespace } from '../events/utils/index';
 import DropDownList from './drop_down_editor/ui.drop_down_list';
 import themes from './themes';
 import { name as clickEventName } from '../events/click';
 import Popover from './popover';
 import TextBox from './text_box';
 import { ChildDefaultTemplate } from '../core/templates/child_default_template';
-import translator from '../animation/translator';
+import { locate, move, resetPosition } from '../animation/translator';
+import { isDefined } from '../core/utils/type';
 
 // STYLE lookup
 
@@ -236,7 +237,7 @@ const Lookup = DropDownList.inherit({
             * @hidden
             */
 
-            itemCenteringEnabled: false,
+            dropDownCentered: false,
 
             _scrollToSelectedItemEnabled: false,
             useHiddenSubmitElement: true
@@ -249,7 +250,7 @@ const Lookup = DropDownList.inherit({
         return this.callBase().concat([
             {
                 device: function() {
-                    return !support.nativeScrolling;
+                    return !nativeScrolling;
                 },
                 options: {
                     useNativeScrolling: false
@@ -307,7 +308,7 @@ const Lookup = DropDownList.inherit({
 
                     showCancelButton: false,
 
-                    itemCenteringEnabled: true,
+                    dropDownCentered: true,
 
                     _scrollToSelectedItemEnabled: true,
 
@@ -419,7 +420,7 @@ const Lookup = DropDownList.inherit({
     },
 
     _renderInkRipple: function() {
-        this._inkRipple = inkRipple.render();
+        this._inkRipple = render();
     },
 
     _toggleOpenState: function() {
@@ -457,7 +458,8 @@ const Lookup = DropDownList.inherit({
             return;
         }
 
-        this._updateField(this.option('displayValue') || this.option('placeholder'));
+        const displayValue = this.option('displayValue');
+        this._updateField(isDefined(displayValue) && String(displayValue) || this.option('placeholder'));
         this.$element().toggleClass(LOOKUP_EMPTY_CLASS, !this.option('selectedItem'));
     },
 
@@ -583,7 +585,7 @@ const Lookup = DropDownList.inherit({
     },
 
     _setPopupPosition: function() {
-        if(!this.option('itemCenteringEnabled')) return;
+        if(!this.option('dropDownCentered')) return;
 
         const flipped = this._popup._$wrapper.hasClass(LOOKUP_POPOVER_FLIP_VERTICAL_CLASS);
         if(flipped) return;
@@ -591,9 +593,9 @@ const Lookup = DropDownList.inherit({
         const popupContentParent = $(this._popup.content()).parent();
         const popupOffset = this._getPopupOffset();
 
-        const position = translator.locate(popupContentParent);
+        const position = locate(popupContentParent);
 
-        translator.move(popupContentParent, {
+        move(popupContentParent, {
             top: position.top - popupOffset
         });
     },
@@ -622,7 +624,9 @@ const Lookup = DropDownList.inherit({
         let listHeight = 0;
         let requireListItems = [];
 
-        if(listItems.length < MATERIAL_LOOKUP_LIST_ITEMS_COUNT) {
+        if(listItems.length === 0) {
+            listHeight += MATERIAL_LOOKUP_LIST_PADDING;
+        } else if(listItems.length < MATERIAL_LOOKUP_LIST_ITEMS_COUNT) {
             listItems.each((_, item) => {
                 listHeight += $(item).outerHeight();
             });
@@ -711,7 +715,7 @@ const Lookup = DropDownList.inherit({
         this.callBase();
 
         if(this.option('_scrollToSelectedItemEnabled')) {
-            translator.resetPosition($(this._popup.content()).parent());
+            resetPosition($(this._popup.content()).parent());
         }
     },
 
@@ -740,7 +744,7 @@ const Lookup = DropDownList.inherit({
         delete result.position;
 
         if(this.option('_scrollToSelectedItemEnabled')) {
-            result.position = this.option('itemCenteringEnabled') ? {
+            result.position = this.option('dropDownCentered') ? {
                 my: 'left top',
                 at: 'left top',
                 of: this.element()
@@ -1132,7 +1136,7 @@ const Lookup = DropDownList.inherit({
             case 'cleanSearchOnOpening':
             case '_scrollToSelectedItemEnabled':
                 break;
-            case 'itemCenteringEnabled':
+            case 'dropDownCentered':
                 if(this.option('_scrollToSelectedItemEnabled')) {
                     this.option('dropDownOptions.position', undefined);
                     this._renderPopup();

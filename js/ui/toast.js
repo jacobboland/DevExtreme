@@ -14,7 +14,7 @@ import { inArray } from '../core/utils/array';
 import pointerEvents from '../events/pointer';
 import registerComponent from '../core/component_registrator';
 import Overlay from './overlay';
-import themes from './themes';
+import { isMaterial } from './themes';
 
 const ready = readyCallbacks.add;
 
@@ -157,7 +157,7 @@ const Toast = Overlay.inherit({
                     return isPhone && isAndroid;
                 },
                 options: {
-                    width: function() { return $(window).width(); },
+                    width: function() { return window?.visualViewport?.width || $(window).width(); },
 
                     position: {
                         at: 'bottom center',
@@ -167,8 +167,16 @@ const Toast = Overlay.inherit({
                 }
             },
             {
+                device: function(device) {
+                    return device.deviceType === 'phone';
+                },
+                options: {
+                    width: function() { return window?.visualViewport?.width || $(window).width(); }
+                }
+            },
+            {
                 device: function() {
-                    return themes.isMaterial();
+                    return isMaterial();
                 },
                 options: {
                     minWidth: 344,

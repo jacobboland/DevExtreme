@@ -9,7 +9,7 @@ import number from '../../localization/number';
 import maskCaret from './number_box.caret';
 import { getFormat as getLDMLFormat } from '../../localization/ldml/number';
 import NumberBoxBase from './number_box.base';
-import { addNamespace, getChar, normalizeKeyName } from '../../events/utils';
+import { addNamespace, getChar, normalizeKeyName } from '../../events/utils/index';
 import { ensureDefined, escapeRegExp } from '../../core/utils/common';
 
 const NUMBER_FORMATTER_NAMESPACE = 'dxNumberFormatter';
@@ -420,7 +420,8 @@ const NumberBoxMask = NumberBoxBase.inherit({
         const sign = number.getSign(text, format?.formatter || format);
         const textWithoutStubs = this._removeStubs(text, true);
         const parsedValue = this._parse(textWithoutStubs, format);
-        const parsedValueWithSign = isNumeric(parsedValue) ? sign * parsedValue : parsedValue;
+        const parsedValueSign = parsedValue < 0 ? -1 : 1;
+        const parsedValueWithSign = isNumeric(parsedValue) && sign !== parsedValueSign ? sign * parsedValue : parsedValue;
 
         return parsedValueWithSign;
     },

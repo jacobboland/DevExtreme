@@ -1,12 +1,12 @@
 import {
   Component,
-  ComponentBindings,
   JSXComponent,
-  Event,
-  OneWay,
   Fragment,
+  Consumer,
 } from 'devextreme-generator/component_declaration/common';
 import { Page, PageProps } from './page';
+import PagerProps from '../common/pager_props';
+import { ConfigContextValue, ConfigContext } from '../../common/config_context';
 
 const PAGER_PAGE_SEPARATOR_CLASS = 'dx-separator';
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -26,19 +26,6 @@ export const viewFunction = ({ pages }: PagesLarge) => {
   ));
   return (<Fragment>{PagesMarkup}</Fragment>);
 };
-
-@ComponentBindings()
-export class PagesLargeProps {
-  @OneWay() maxPagesCount?: number = 10;
-
-  @OneWay() pageCount?: number = 10;
-
-  @OneWay() pageIndex?: number = 0;
-
-  @OneWay() rtlEnabled?: boolean = false;
-
-  @Event() pageIndexChange?: (pageIndex: number) => void;
-}
 
 const PAGES_LIMITER = 4;
 interface PageType {
@@ -102,10 +89,16 @@ function createPageIndexes(startIndex: number, slidingWindowSize: number, pageCo
   );
 }
 
+type PagesLargePropsType = Pick<PagerProps,
+'maxPagesCount' | 'pageCount' | 'pageIndex' | 'pageIndexChange'>;
+
 @Component({ defaultOptionRules: null, view: viewFunction })
-export class PagesLarge extends JSXComponent(PagesLargeProps) {
+export class PagesLarge extends JSXComponent<PagesLargePropsType>() {
+  @Consumer(ConfigContext)
+  config?: ConfigContextValue;
+
   get pages(): PageType[] {
-    const { pageIndex } = this.props as Required<PagesLargeProps>;
+    const { pageIndex } = this.props;
     const createPage = (index: PageIndex): PageType => {
       const pagerProps = (index === 'low' || index === 'high') ? null
         : {
@@ -118,7 +111,7 @@ export class PagesLarge extends JSXComponent(PagesLargeProps) {
         pageProps: pagerProps,
       };
     };
-    const rtlPageIndexes = this.props.rtlEnabled
+    const rtlPageIndexes = this.config?.rtlEnabled
       ? [...this.pageIndexes].reverse() : this.pageIndexes;
     return rtlPageIndexes.map((index): PageType => createPage(index));
   }
@@ -131,7 +124,7 @@ export class PagesLarge extends JSXComponent(PagesLargeProps) {
   }
 
   generatePageIndexes(): PageIndexes {
-    const { pageIndex, pageCount } = this.props as Required<PagesLargeProps>;
+    const { pageIndex, pageCount } = this.props;
     let startIndex = 0;
     const slidingWindow = this.slidingWindowState.slidingWindowIndexes;
     if (pageIndex === slidingWindow[0]) {
@@ -161,7 +154,7 @@ export class PagesLarge extends JSXComponent(PagesLargeProps) {
   }
 
   isSlidingWindowMode(): boolean {
-    const { pageCount, maxPagesCount } = this.props as Required<PagesLargeProps>;
+    const { pageCount, maxPagesCount } = this.props;
     return (pageCount <= PAGES_LIMITER) || (pageCount <= maxPagesCount);
   }
 
@@ -170,7 +163,7 @@ export class PagesLarge extends JSXComponent(PagesLargeProps) {
     if (this.isSlidingWindowMode()) {
       return createPageIndexes(0, pageCount, pageCount, 'none').pageIndexes;
     }
-    if (this.canReuseSlidingWindow(pageCount, this.props.pageIndex!)) {
+    if (this.canReuseSlidingWindow(pageCount, this.props.pageIndex)) {
       const { slidingWindowIndexes } = this.slidingWindowState;
       const delimiter = getDelimiterType(
         slidingWindowIndexes[0], PAGES_LIMITER, pageCount,

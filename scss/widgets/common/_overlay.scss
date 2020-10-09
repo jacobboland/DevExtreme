@@ -1,7 +1,6 @@
 @use "../base/mixins" as *;
 
 // adduse
-$overlay-zindex: 1000;
 
 .dx-overlay-wrapper {
   top: 0;
@@ -13,10 +12,10 @@ $overlay-zindex: 1000;
 
   &,
   *,
-  &:before,
-  &:after,
-  *:before,
-  *:after {
+  &::before,
+  &::after,
+  *::before,
+  *::after {
     box-sizing: border-box;
   }
 }

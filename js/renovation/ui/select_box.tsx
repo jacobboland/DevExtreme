@@ -1,14 +1,23 @@
 import {
-  Ref, Effect, Component, ComponentBindings, JSXComponent, Event, OneWay, TwoWay,
+  Component, ComponentBindings, JSXComponent, Event, OneWay, TwoWay,
 } from 'devextreme-generator/component_declaration/common';
 import { WidgetProps } from './common/widget';
 // https://github.com/benmosher/eslint-plugin-import/issues/1699
 /* eslint-disable-next-line import/named */
 import DataSource, { DataSourceOptions } from '../../data/data_source';
 /* eslint-disable-next-line import/named */
-import DxSelectBox, { Options } from '../../ui/select_box';
+import LegacySelectBox from '../../ui/select_box';
+import { DomComponentWrapper } from './common/dom_component_wrapper';
+import { EventCallback } from './common/event_callback.d';
 
-export const viewFunction = ({ widgetRef }: SelectBox) => (<div ref={widgetRef as any} />);
+export const viewFunction = ({ props, restAttributes }: SelectBox): JSX.Element => (
+  <DomComponentWrapper
+    componentType={LegacySelectBox}
+    componentProps={props}
+  // eslint-disable-next-line react/jsx-props-no-spreading
+    {...restAttributes}
+  />
+);
 
 @ComponentBindings()
 export class SelectBoxProps extends WidgetProps {
@@ -16,35 +25,14 @@ export class SelectBoxProps extends WidgetProps {
 
   @OneWay() displayExpr?: string;
 
-  @TwoWay() value?: number;
+  @TwoWay() value: number | null = null;
 
   @OneWay() valueExpr?: string;
 
-  @Event() valueChange?: ((value: number) => void) = () => { };
+  @Event() valueChange?: EventCallback<any>;
 }
 @Component({
   defaultOptionRules: null,
   view: viewFunction,
 })
-export class SelectBox extends JSXComponent(SelectBoxProps) {
-  @Ref()
-  widgetRef!: HTMLDivElement;
-
-  @Effect()
-  updateWidget(): void {
-    const widget = DxSelectBox.getInstance(this.widgetRef);
-    widget?.option(this.properties);
-  }
-
-  @Effect({ run: 'once' })
-  setupWidget(): () => void {
-    const widget = new DxSelectBox(this.widgetRef, this.properties);
-
-    return (): void => widget.dispose();
-  }
-
-  get properties(): Options {
-    const { valueChange, ...restProps } = this.props;
-    return ({ ...restProps, onValueChanged: ({ value }) => valueChange!(value) }) as Options;
-  }
-}
+export class SelectBox extends JSXComponent(SelectBoxProps) { }

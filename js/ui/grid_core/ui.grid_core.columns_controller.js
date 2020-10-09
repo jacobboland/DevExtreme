@@ -754,7 +754,7 @@ export default {
                 }
             };
 
-            const updateSortOrderWhenGrouping = function(column, groupIndex, prevGroupIndex) {
+            const updateSortOrderWhenGrouping = function(that, column, groupIndex, prevGroupIndex) {
                 const columnWasGrouped = prevGroupIndex >= 0;
 
                 if(groupIndex >= 0) {
@@ -762,7 +762,17 @@ export default {
                         column.lastSortOrder = column.sortOrder;
                     }
                 } else {
-                    column.sortOrder = column.lastSortOrder;
+                    const sortMode = that.option('sorting.mode');
+                    let sortOrder = column.lastSortOrder;
+
+                    if(sortMode === 'single') {
+                        const sortedByAnotherColumn = that._columns.some(col => col !== column && isDefined(col.sortIndex));
+                        if(sortedByAnotherColumn) {
+                            sortOrder = undefined;
+                        }
+                    }
+
+                    column.sortOrder = sortOrder;
                 }
             };
 
@@ -795,7 +805,7 @@ export default {
                 if(prevValue !== value) {
                     if(optionName === 'groupIndex' || optionName === 'calculateGroupValue') {
                         changeType = 'grouping';
-                        updateSortOrderWhenGrouping(column, value, prevValue);
+                        updateSortOrderWhenGrouping(that, column, value, prevValue);
                     } else if(optionName === 'sortIndex' || optionName === 'sortOrder' || optionName === 'calculateSortValue') {
                         changeType = 'sorting';
                     } else {
@@ -1186,7 +1196,9 @@ export default {
                             const isEditingPopup = args.fullName?.indexOf('editing.popup') === 0;
                             const isEditingForm = args.fullName?.indexOf('editing.form') === 0;
                             const isEditRowKey = args.fullName?.indexOf('editing.editRowKey') === 0;
-                            const needReinit = !isEditingPopup && !isEditingForm && !isEditRowKey;
+                            const isEditColumnName = args.fullName?.indexOf('editing.editColumnName') === 0;
+                            const isChanges = args.fullName?.indexOf('editing.changes') === 0;
+                            const needReinit = !isEditingPopup && !isEditingForm && !isEditRowKey && !isChanges && !isEditColumnName;
 
                             if(needReinit) {
                                 this.reinit(ignoreColumnOptionNames);
@@ -1367,6 +1379,9 @@ export default {
                         return field;
                     });
                 },
+                getColumnIndexOffset: function() {
+                    return 0;
+                },
                 _getFixedColumnsCore: function() {
                     const that = this;
                     const result = [];
@@ -1427,7 +1442,15 @@ export default {
                         }
                     }
 
-                    return result;
+                    return result.map(columns => {
+                        return columns.map(column => {
+                            const newColumn = { ...column };
+                            if(newColumn.headerId) {
+                                newColumn.headerId += '-fixed';
+                            }
+                            return newColumn;
+                        });
+                    });
                 },
                 _isColumnFixing: function() {
                     let isColumnFixing = this.option('columnFixing.enabled');
@@ -1757,8 +1780,10 @@ export default {
                     if(allowSorting && column && column.allowSorting) {
                         if(needResetSorting && !isDefined(column.groupIndex)) {
                             iteratorUtils.each(that._columns, function(index) {
-                                if(index !== columnIndex && this.sortOrder && !isDefined(this.groupIndex)) {
-                                    delete this.sortOrder;
+                                if(index !== columnIndex && this.sortOrder) {
+                                    if(!isDefined(this.groupIndex)) {
+                                        delete this.sortOrder;
+                                    }
                                     delete this.sortIndex;
                                 }
                             });
@@ -2031,7 +2056,13 @@ export default {
                                     const selector = sortParameters[i].selector;
                                     const isExpanded = sortParameters[i].isExpanded;
 
-                                    if(selector === column.dataField || selector === column.name || selector === column.selector || selector === column.calculateCellValue || selector === column.calculateGroupValue) {
+                                    if(selector === column.dataField ||
+                                        selector === column.name ||
+                                        selector === column.selector ||
+                                        selector === column.calculateCellValue ||
+                                        selector === column.calculateGroupValue ||
+                                        selector === column.calculateDisplayValue
+                                    ) {
                                         column.sortOrder = column.sortOrder || (sortParameters[i].desc ? 'desc' : 'asc');
 
                                         if(isExpanded !== undefined) {
@@ -2295,12 +2326,14 @@ export default {
                     let hasDuplicatedNames = false;
                     this._columns.forEach(column => {
                         const name = column.name;
+                        const isBand = column.columns?.length;
+                        const isEditable = column.allowEditing && (column.dataField || column.setCellValue) && !isBand;
                         if(name) {
                             if(usedNames[name]) {
                                 hasDuplicatedNames = true;
                             }
                             usedNames[name] = true;
-                        } else if(column.allowEditing) {
+                        } else if(isEditable) {
                             hasEditableColumnWithoutName = true;
                         }
                     });

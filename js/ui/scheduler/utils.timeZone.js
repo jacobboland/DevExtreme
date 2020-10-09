@@ -1,8 +1,50 @@
+/* globals Intl */
 import dateUtils from '../../core/utils/date';
-import SchedulerTimezones from './timezones/ui.scheduler.timezones';
+import timeZoneDataUtils from './timezones/utils.timezones_data';
+import DateAdapter from './dateAdapter';
 
 const toMs = dateUtils.dateToMilliseconds;
 const MINUTES_IN_HOUR = 60;
+
+const createUTCDateWithLocalOffset = date => {
+    if(!date) {
+        return null;
+    }
+
+    return new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        date.getHours(),
+        date.getMinutes(),
+        date.getSeconds()
+    ));
+};
+
+const createDateFromUTCWithLocalOffset = date => {
+    const result = DateAdapter(date);
+
+    const timezoneOffsetBeforeInMin = result.getTimezoneOffset();
+    result.addTime(result.getTimezoneOffset('minute'));
+    result.subtractMinutes(timezoneOffsetBeforeInMin - result.getTimezoneOffset());
+
+    return result.source;
+};
+
+const getTimeZones = (date = new Date()) => {
+    const dateInUTC = createUTCDate(date);
+    return timeZoneDataUtils.getDisplayedTimeZones(dateInUTC.getTime());
+};
+
+const createUTCDate = (date) => {
+    return new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        date.getUTCHours(),
+        date.getUTCMinutes()
+    ));
+};
 
 const getTimezoneOffsetChangeInMinutes = (startDate, endDate, updatedStartDate, updatedEndDate) => {
     return getDaylightOffset(updatedStartDate, updatedEndDate) - getDaylightOffset(startDate, endDate);
@@ -20,17 +62,11 @@ const getDaylightOffsetInMs = (startDate, endDate) => {
     return getDaylightOffset(startDate, endDate) * toMs('minute');
 };
 
-const calculateTimezoneByValue = (timezone, date) => {
+const calculateTimezoneByValue = (timezone, date = new Date()) => {
+    // NOTE: This check could be removed. We don't support numerical timezones
     if(typeof timezone === 'string') {
-        date = date || new Date();
-        const dateUtc = Date.UTC(
-            date.getUTCFullYear(),
-            date.getUTCMonth(),
-            date.getUTCDate(),
-            date.getUTCHours(),
-            date.getUTCMinutes()
-        );
-        timezone = SchedulerTimezones.getTimezoneOffsetById(timezone, dateUtc);
+        const dateUtc = createUTCDate(date);
+        return timeZoneDataUtils.getTimeZoneOffsetById(timezone, dateUtc.getTime());
     }
     return timezone;
 };
@@ -72,16 +108,75 @@ const isSameAppointmentDates = (startDate, endDate) => {
     return dateUtils.sameDate(startDate, endDate);
 };
 
+const getClientTimezoneOffset = (date) => {
+    return date.getTimezoneOffset() * 60000;
+};
+
+const isEqualLocalTimeZone = (timeZoneName) => {
+    if(Intl) {
+        const localTimeZoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if(localTimeZoneName) {
+            return localTimeZoneName === timeZoneName;
+        }
+    }
+
+    return isEqualLocalTimeZoneByNativeDate(timeZoneName);
+};
+
+const hasDSTInLocalTimeZone = () => {
+    const [startDate, endDate] = getExtremeDates();
+    return startDate.getTimezoneOffset() !== endDate.getTimezoneOffset();
+};
+
+const isEqualLocalTimeZoneByNativeDate = (timeZoneName) => {
+    const [startDate, endDate] = getExtremeDates();
+
+    const startDateLocalOffset = -startDate.getTimezoneOffset() / 60;
+    const endDateLocalOffset = -endDate.getTimezoneOffset() / 60;
+
+    const startDateOffset = calculateTimezoneByValue(timeZoneName, startDate);
+    const endDateOffset = calculateTimezoneByValue(timeZoneName, endDate);
+
+    if(startDateLocalOffset === startDateOffset && endDateLocalOffset === endDateOffset) {
+        return true;
+    }
+
+    return false;
+};
+
+
+// TODO: Getting two dates in january or june is the standard mechanism for determining that an offset has occurred.
+const getExtremeDates = () => {
+    const nowDate = new Date(Date.now());
+
+    const startDate = new Date();
+    const endDate = new Date();
+
+    startDate.setFullYear(nowDate.getFullYear(), 0, 1);
+    endDate.setFullYear(nowDate.getFullYear(), 6, 1);
+
+    return [startDate, endDate];
+};
+
 const utils = {
-    getDaylightOffset: getDaylightOffset,
-    getDaylightOffsetInMs: getDaylightOffsetInMs,
-    getTimezoneOffsetChangeInMinutes: getTimezoneOffsetChangeInMinutes,
-    getTimezoneOffsetChangeInMs: getTimezoneOffsetChangeInMs,
-    calculateTimezoneByValue: calculateTimezoneByValue,
-    getCorrectedDateByDaylightOffsets: getCorrectedDateByDaylightOffsets,
-    isTimezoneChangeInDate: isTimezoneChangeInDate,
-    isSameAppointmentDates: isSameAppointmentDates,
-    correctRecurrenceExceptionByTimezone: correctRecurrenceExceptionByTimezone
+    getDaylightOffset,
+    getDaylightOffsetInMs,
+    getTimezoneOffsetChangeInMinutes,
+    getTimezoneOffsetChangeInMs,
+    calculateTimezoneByValue,
+    getCorrectedDateByDaylightOffsets,
+    isTimezoneChangeInDate,
+    isSameAppointmentDates,
+    correctRecurrenceExceptionByTimezone,
+    getClientTimezoneOffset,
+
+    createUTCDateWithLocalOffset,
+    createDateFromUTCWithLocalOffset,
+    createUTCDate,
+
+    hasDSTInLocalTimeZone,
+    isEqualLocalTimeZone,
+    getTimeZones
 };
 
 export default utils;

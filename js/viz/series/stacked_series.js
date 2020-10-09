@@ -5,11 +5,11 @@ import { extend as _extend } from '../../core/utils/extend';
 import { each } from '../../core/utils/iterator';
 import { chart as areaSeries } from './area_series';
 const chartAreaSeries = areaSeries.area;
-import barSeries from './bar_series';
-const chartBarSeries = barSeries.chart.bar;
+import { chart as _chart, polar as _polar } from './bar_series';
+const chartBarSeries = _chart.bar;
 import { chart as lineSeries } from './line_series';
-import vizUtils from '../core/utils';
-import objectUtils from '../../core/utils/object';
+import { map } from '../core/utils';
+import { clone } from '../../core/utils/object';
 const baseStackedSeries = {
     _calculateErrorBars: _noop,
     _updateOptions: function(options) {
@@ -44,7 +44,7 @@ chart['fullstackedbar'] = _extend({}, chartBarSeries, baseStackedSeries, {
 });
 
 function clonePoint(point, value, minValue, position) {
-    point = objectUtils.clone(point);
+    point = clone(point);
     point.value = value;
     point.minValue = minValue;
     point.translate();
@@ -102,7 +102,7 @@ chart['stackedsplinearea'] = _extend({}, areaSeries['splinearea'], baseStackedSe
             areaSegment = areaSeries['splinearea']._prepareSegment.call(this, points, rotated);
         } else {
             const forwardPoints = lineSeries.spline._calculateBezierPoints(points, rotated);
-            let backwardPoints = vizUtils.map(points, function(p) {
+            let backwardPoints = map(points, function(p) {
                 const point = p.getCoords(true);
                 point.argument = p.argument;
                 return point;
@@ -161,7 +161,7 @@ chart['fullstackedsplinearea'] = _extend({}, areaSeries['splinearea'], baseStack
     _appendInGroup: chart['stackedarea']._appendInGroup
 });
 
-polar['stackedbar'] = _extend({}, barSeries.polar.bar, baseStackedSeries, {});
+polar['stackedbar'] = _extend({}, _polar.bar, baseStackedSeries, {});
 
 export {
     chart,

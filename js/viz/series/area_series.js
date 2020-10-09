@@ -1,13 +1,13 @@
 // there are area, steparea, stackedarea, fullstackedarea, splinearea
-import objectUtils from '../../core/utils/object';
+import { clone } from '../../core/utils/object';
 import { extend } from '../../core/utils/extend';
 import { chart as scatterSeries } from './scatter_series';
-import lineSeries from './line_series';
-const chartLineSeries = lineSeries.chart.line;
-const polarLineSeries = lineSeries.polar.line;
+import { chart as lineSeriesChart, polar as lineSeriesPolar } from './line_series';
+const chartLineSeries = lineSeriesChart.line;
+const polarLineSeries = lineSeriesPolar.line;
 import { map as _map } from '../core/utils';
 const _extend = extend;
-const calculateBezierPoints = lineSeries.chart['spline']._calculateBezierPoints;
+const calculateBezierPoints = lineSeriesChart['spline']._calculateBezierPoints;
 
 const chart = {};
 const polar = {};
@@ -148,7 +148,7 @@ const areaSeries = chart['area'] = _extend({}, chartLineSeries, baseAreaMethods,
     _processSinglePointsAreaSegment: function(points, rotated) {
         if(points && points.length === 1) {
             const p = points[0];
-            const p1 = objectUtils.clone(p);
+            const p1 = clone(p);
             p1[rotated ? 'y' : 'x'] += 1;
             p1.argument = null;
             return [p, p1];
@@ -164,18 +164,18 @@ polar['area'] = _extend({}, polarLineSeries, baseAreaMethods, {
         return areaSeries._prepareSegment.call(this, points);
     },
     _processSinglePointsAreaSegment: function(points) {
-        return lineSeries.polar.line._prepareSegment.call(this, points).line;
+        return lineSeriesPolar.line._prepareSegment.call(this, points).line;
     }
 });
 
 chart['steparea'] = _extend({}, areaSeries, {
     _prepareSegment: function(points, rotated) {
-        const stepLineSeries = lineSeries.chart['stepline'];
+        const stepLineSeries = lineSeriesChart['stepline'];
         points = areaSeries._processSinglePointsAreaSegment(points, rotated);
         return areaSeries._prepareSegment.call(this, stepLineSeries._calculateStepLinePoints.call(this, points), rotated);
     },
 
-    getSeriesPairCoord: lineSeries.chart['stepline'].getSeriesPairCoord
+    getSeriesPairCoord: lineSeriesChart['stepline'].getSeriesPairCoord
 });
 
 chart['splinearea'] = _extend({}, areaSeries, {
@@ -212,15 +212,15 @@ chart['splinearea'] = _extend({}, areaSeries, {
         return this._renderer.path(points, 'bezierarea').attr(settings);
     },
 
-    _createBorderElement: lineSeries.chart['spline']._createMainElement,
+    _createBorderElement: lineSeriesChart['spline']._createMainElement,
 
-    getSeriesPairCoord: lineSeries.chart['spline'].getSeriesPairCoord,
+    getSeriesPairCoord: lineSeriesChart['spline'].getSeriesPairCoord,
 
-    _getNearestPoints: lineSeries.chart['spline']._getNearestPoints,
+    _getNearestPoints: lineSeriesChart['spline']._getNearestPoints,
 
-    _getBezierPoints: lineSeries.chart['spline']._getBezierPoints,
+    _getBezierPoints: lineSeriesChart['spline']._getBezierPoints,
 
-    obtainCubicBezierTCoef: lineSeries.chart['spline'].obtainCubicBezierTCoef
+    obtainCubicBezierTCoef: lineSeriesChart['spline'].obtainCubicBezierTCoef
 });
 
 export {

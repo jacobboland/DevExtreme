@@ -11,7 +11,7 @@ import { getDiagram } from './diagram.importer';
 import { getWindow, hasWindow } from '../../core/utils/window';
 import { getPublicElement } from '../../core/element';
 import eventsEngine from '../../events/core/events_engine';
-import { addNamespace } from '../../events/utils';
+import { addNamespace } from '../../events/utils/index';
 import messageLocalization from '../../localization/message';
 import numberLocalization from '../../localization/number';
 import * as zIndexPool from '../overlay/z_index';
@@ -70,6 +70,7 @@ const MOZ_FULLSCREEN_CHANGE_EVENT_NAME = addNamespace('mozfullscreenchange', DIA
 class Diagram extends Widget {
     _init() {
         this._updateDiagramLockCount = 0;
+        this.toggleFullscreenLock = 0;
         this._browserResizeTimer = -1;
         this._toolbars = [];
 
@@ -665,8 +666,10 @@ class Diagram extends Widget {
             notifyItemDblClick: this._raiseItemDblClickAction.bind(this),
             notifySelectionChanged: this._raiseSelectionChanged.bind(this)
         });
+        this._diagramInstance.onRequestOperation = this._raiseRequestEditOperation.bind(this);
         this._updateEventSubscriptionMethods();
         this._updateDefaultItemProperties();
+        this._updateEditingSettings();
 
         this._updateShapeTexts();
         this._updateUnitItems();
@@ -721,12 +724,20 @@ class Diagram extends Widget {
             this._updateAutoZoomState();
         }
         if(this.option('fullScreen')) {
-            this._updateFullscreenState();
+            const window = getWindow();
+            if(window && window.self !== window.top) {
+                this.option('fullScreen', false);
+            } else {
+                this._updateFullscreenState();
+            }
         }
 
         this.optionsUpdateBar = new DiagramOptionsUpdateBar(this);
         this._diagramInstance.registerBar(this.optionsUpdateBar);
-
+        if(hasWindow()) {
+            // eslint-disable-next-line spellcheck/spell-checker
+            this._diagramInstance.initMeasurer(this.$element()[0]);
+        }
         this._updateCustomShapes(this._getCustomShapes());
         this._refreshDataSources();
     }
@@ -797,10 +808,23 @@ class Diagram extends Widget {
     _onDataSourceChanged() {
         this._bindDiagramData();
     }
+    _getChangesKeys(changes) {
+        return changes.map(change => change.internalKey || change.key).filter(key => !!key);
+    }
+
     _createOptionGetter(optionName) {
         const expr = this.option(optionName);
         return expr && dataCoreUtils.compileGetter(expr);
     }
+    _onRequestUpdateLayout(changes) {
+        if(!this._requestLayoutUpdateAction) {
+            this._createRequestLayoutUpdateAction();
+        }
+        const eventArgs = { changes, allowed: false };
+        this._requestLayoutUpdateAction(eventArgs);
+        return eventArgs.allowed;
+    }
+
     _createOptionSetter(optionName) {
         const expr = this.option(optionName);
         if(isFunction(expr)) {
@@ -959,24 +983,25 @@ class Diagram extends Widget {
         };
         this._executeDiagramCommand(DiagramCommand.BindDocument, data);
     }
-    reloadContent(itemKey, applyLayout) {
+    _reloadContentByChanges(changes, isExternalChanges) {
+        const keys = this._getChangesKeys(changes);
+        const applyLayout = this._onRequestUpdateLayout(changes);
+        this._reloadContent(keys, applyLayout, isExternalChanges);
+    }
+    _reloadContent(itemKeys, applyLayout, isExternalChanges) {
         const getData = () => {
             let nodeDataSource;
             let edgeDataSource;
-            this._beginUpdateDiagram();
-            if(this._nodesOption) {
-                this._nodesOption.getDataSource().reload();
+            if(this._nodesOption && isExternalChanges) {
                 nodeDataSource = this._nodesOption.getItems();
             }
-            if(this._edgesOption) {
-                this._edgesOption.getDataSource().reload();
+            if(this._edgesOption && isExternalChanges) {
                 edgeDataSource = this._edgesOption.getItems();
             }
-            this._endUpdateDiagram(true);
             return { nodeDataSource, edgeDataSource };
         };
-        this._diagramInstance.reloadContent(itemKey, getData,
-            applyLayout && this._getDataBindingLayoutParameters()
+        this._diagramInstance.reloadContent(itemKeys, getData,
+            applyLayout && this._getDataBindingLayoutParameters(), isExternalChanges
         );
     }
     _getConnectorLineOption(lineType) {
@@ -1005,10 +1030,8 @@ class Diagram extends Widget {
         const { DataLayoutType, DataLayoutOrientation } = getDiagram();
         const layoutParametersOption = this.option('nodes.autoLayout') || 'off';
         const layoutType = layoutParametersOption.type || layoutParametersOption;
-        if(layoutType === 'off' || (layoutType === 'auto' && this._hasNodePositionExprs())) {
-            return undefined;
-        } else {
-            const parameters = {};
+        const parameters = {};
+        if(layoutType !== 'off' && (layoutType !== 'auto' || !this._hasNodePositionExprs())) {
             switch(layoutType) {
                 case 'tree':
                     parameters.type = DataLayoutType.Tree;
@@ -1028,8 +1051,9 @@ class Diagram extends Widget {
             if(this.option('edges.fromPointIndexExpr') || this.option('edges.toPointIndexExpr')) {
                 parameters.skipPointIndices = true;
             }
-            return parameters;
         }
+        parameters.autoSizeEnabled = !!this.option('nodes.autoSizeEnabled');
+        return parameters;
     }
     _hasNodePositionExprs() {
         return this.option('nodes.topExpr') && this.option('nodes.leftExpr');
@@ -1052,9 +1076,9 @@ class Diagram extends Widget {
     _beginUpdateDiagram() {
         this._updateDiagramLockCount++;
     }
-    _endUpdateDiagram(preventBindDiagram) {
+    _endUpdateDiagram() {
         this._updateDiagramLockCount = Math.max(this._updateDiagramLockCount - 1, 0);
-        if(!this._updateDiagramLockCount && !preventBindDiagram) {
+        if(!this._updateDiagramLockCount) {
             this._bindDiagramData();
         }
     }
@@ -1123,16 +1147,22 @@ class Diagram extends Widget {
                                 container: getPublicElement($(container))
                             });
                         }),
+                        destroyTemplate: template && ((container) => {
+                            $(container).empty();
+                        }),
                         templateLeft: s.templateLeft,
                         templateTop: s.templateTop,
                         templateWidth: s.templateWidth,
-                        templateHeight: s.templateHeight
+                        templateHeight: s.templateHeight,
+                        keepRatioOnAutoSize: s.keepRatioOnAutoSize
                     };
                 }
             ));
         }
     }
     _onToggleFullScreen(fullScreen) {
+        if(this.toggleFullscreenLock > 0) return;
+
         this._changeNativeFullscreen(fullScreen);
         this.$element().toggleClass(DIAGRAM_FULLSCREEN_CLASS, fullScreen);
         this._diagramInstance.updateLayout(true);
@@ -1209,6 +1239,12 @@ class Diagram extends Widget {
             this.option('fullScreen', false);
         }
     }
+    _executeDiagramFullscreenCommand(fullscreen) {
+        const { DiagramCommand } = getDiagram();
+        this.toggleFullscreenLock++;
+        this._executeDiagramCommand(DiagramCommand.Fullscreen, fullscreen);
+        this.toggleFullscreenLock--;
+    }
     _onShowContextMenu(x, y, selection) {
         if(this._contextMenu) {
             this._contextMenu._show(x, y, selection);
@@ -1273,10 +1309,9 @@ class Diagram extends Widget {
         this._executeDiagramCommand(DiagramCommand.ToggleSimpleView, this.option('simpleView'));
     }
     _updateFullscreenState() {
-        const { DiagramCommand } = getDiagram();
-        const fullScreen = this.option('fullScreen');
-        this._executeDiagramCommand(DiagramCommand.Fullscreen, fullScreen);
-        this._onToggleFullScreen(fullScreen);
+        const fullscreen = this.option('fullScreen');
+        this._executeDiagramFullscreenCommand(fullscreen);
+        this._onToggleFullScreen(fullscreen);
     }
     _updateShowGridState() {
         const { DiagramCommand } = getDiagram();
@@ -1437,7 +1472,27 @@ class Diagram extends Widget {
             startLineEnding: this._getConnectorLineEnding(this.option('defaultItemProperties.connectorLineStart')),
             endLineEnding: this._getConnectorLineEnding(this.option('defaultItemProperties.connectorLineEnd'))
         });
+        this._diagramInstance.applyShapeSizeSettings({
+            shapeMinWidth: this.option('defaultItemProperties.shapeMinWidth'),
+            shapeMaxWidth: this.option('defaultItemProperties.shapeMaxWidth'),
+            shapeMinHeight: this.option('defaultItemProperties.shapeMinHeight'),
+            shapeMaxHeight: this.option('defaultItemProperties.shapeMaxHeight')
+        });
     }
+    _updateEditingSettings() {
+        this._diagramInstance.applyOperationSettings({
+            addShape: this.option('editing.allowAddShape'),
+            addShapeFromToolbox: this.option('editing.allowAddShape'),
+            deleteShape: this.option('editing.allowDeleteShape'),
+            deleteConnector: this.option('editing.allowDeleteConnector'),
+            changeConnection: this.option('editing.allowChangeConnection'),
+            changeConnectorPoints: this.option('editing.allowChangeConnectorPoints'),
+            changeShapeText: this.option('editing.allowChangeShapeText'),
+            changeConnectorText: this.option('editing.allowChangeConnectorText'),
+            resizeShape: this.option('editing.allowResizeShape')
+        });
+    }
+
 
     focus() {
         this._diagramCaptureFocus();
@@ -1662,7 +1717,13 @@ class Diagram extends Widget {
                  * @name dxDiagramOptions.nodes.autoLayout.orientation
                  * @type Enums.DiagramDataLayoutOrientation
                  */
-                autoLayout: 'auto'
+                autoLayout: 'auto',
+                /**
+                * @name dxDiagramOptions.nodes.autoSizeEnabled
+                * @type boolean
+                * @default true
+                */
+                autoSizeEnabled: true,
             },
             edges: {
                 /**
@@ -1941,6 +2002,10 @@ class Diagram extends Widget {
                 * @name dxDiagramOptions.customShapes.templateHeight
                 * @type Number
                 */
+                /**
+                * @name dxDiagramOptions.customShapes.keepRatioOnAutoSize
+                * @type Boolean
+                */
             ],
             toolbox: {
                 /**
@@ -2138,6 +2203,56 @@ class Diagram extends Widget {
                 */
                 connectorLineEnd: 'arrow',
             },
+            editing: {
+                /**
+                * @name dxDiagramOptions.editing.allowAddShape
+                * @type boolean
+                * @default true
+                */
+                allowAddShape: true,
+                /**
+                * @name dxDiagramOptions.editing.allowDeleteShape
+                * @type boolean
+                * @default true
+                */
+                allowDeleteShape: true,
+                /**
+                * @name dxDiagramOptions.editing.allowDeleteConnector
+                * @type boolean
+                * @default true
+                */
+                allowDeleteConnector: true,
+                /**
+                * @name dxDiagramOptions.editing.allowChangeConnection
+                * @type boolean
+                * @default true
+                */
+                allowChangeConnection: true,
+                /**
+                * @name dxDiagramOptions.editing.allowChangeConnectorPoints
+                * @type boolean
+                * @default true
+                */
+                allowChangeConnectorPoints: true,
+                /**
+                * @name dxDiagramOptions.editing.allowChangeShapeText
+                * @type boolean
+                * @default true
+                */
+                allowChangeShapeText: true,
+                /**
+                * @name dxDiagramOptions.editing.allowChangeConnectorText
+                * @type boolean
+                * @default true
+                */
+                allowChangeConnectorText: true,
+                /**
+                * @name dxDiagramOptions.editing.allowResizeShape
+                * @type boolean
+                * @default true
+                */
+                allowResizeShape: true
+            },
             export: {
                 /**
                  * @name dxDiagramOptions.export.fileName
@@ -2158,7 +2273,11 @@ class Diagram extends Widget {
 
             onItemDblClick: null,
 
-            onSelectionChanged: null
+            onSelectionChanged: null,
+
+            onRequestEditOperation: null,
+
+            onRequestLayoutUpdate: null
 
             /**
              * @name dxDiagramOptions.accessKey
@@ -2286,6 +2405,12 @@ class Diagram extends Widget {
     _createSelectionChangedAction() {
         this._selectionChangedAction = this._createActionByOption('onSelectionChanged');
     }
+    _createRequestEditOperationAction() {
+        this._requestEditOperationAction = this._createActionByOption('onRequestEditOperation');
+    }
+    _createRequestLayoutUpdateAction() {
+        this._requestLayoutUpdateAction = this._createActionByOption('onRequestLayoutUpdate');
+    }
     _createCustomCommand() {
         this._customCommandAction = this._createActionByOption('onCustomCommand');
     }
@@ -2307,6 +2432,119 @@ class Diagram extends Widget {
         }
         this._selectionChangedAction({ items: nativeItems.map(this._nativeItemToDiagramItem.bind(this)) });
     }
+    _raiseRequestEditOperation(operation, args) {
+        if(!this._requestEditOperationAction) {
+            this._createRequestEditOperationAction();
+        }
+        const eventArgs = this._getRequestEditOperationEventArgs(operation, args);
+        this._requestEditOperationAction(eventArgs);
+        args.allowed = eventArgs.allowed;
+    }
+    _getModelOperation(operation) {
+        const { DiagramModelOperation } = getDiagram();
+        switch(operation) {
+            case DiagramModelOperation.AddShape:
+                return 'addShape';
+            case DiagramModelOperation.AddShapeFromToolbox:
+                return 'addShapeFromToolbox';
+            case DiagramModelOperation.DeleteShape:
+                return 'deleteShape';
+            case DiagramModelOperation.DeleteConnector:
+                return 'deleteConnector';
+            case DiagramModelOperation.ChangeConnection:
+                return 'changeConnection';
+            case DiagramModelOperation.ChangeConnectorPoints:
+                return 'changeConnectorPoints';
+            case DiagramModelOperation.BeforeChangeShapeText:
+                return 'beforeChangeShapeText';
+            case DiagramModelOperation.ChangeShapeText:
+                return 'changeShapeText';
+            case DiagramModelOperation.BeforeChangeConnectorText:
+                return 'beforeChangeConnectorText';
+            case DiagramModelOperation.ChangeConnectorText:
+                return 'changeConnectorText';
+            case DiagramModelOperation.ResizeShape:
+                return 'resizeShape';
+        }
+    }
+    _getRequestEditOperationEventArgs(operation, args) {
+        const { DiagramModelOperation, ConnectorPosition } = getDiagram();
+        const eventArgs = {
+            operation: this._getModelOperation(operation),
+            allowed: args.allowed,
+            updateUI: args.updateUI
+        };
+        switch(operation) {
+            case DiagramModelOperation.AddShape:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    position: args.position && { x: args.position.x, y: args.position.y }
+                };
+                break;
+            case DiagramModelOperation.AddShapeFromToolbox:
+                eventArgs.args = {
+                    shapeType: args.shapeType
+                };
+                break;
+            case DiagramModelOperation.DeleteShape:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape)
+                };
+                break;
+            case DiagramModelOperation.DeleteConnector:
+                eventArgs.args = {
+                    connector: args.connector && this._nativeItemToDiagramItem(args.connector)
+                };
+                break;
+            case DiagramModelOperation.ChangeConnection:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    connector: args.connector && this._nativeItemToDiagramItem(args.connector),
+                    connectionPointIndex: args.connectionPointIndex,
+                    connectorPosition: (args.position === ConnectorPosition.Begin) ? 'start' : 'end',
+                };
+                break;
+            case DiagramModelOperation.ChangeConnectorPoints:
+                eventArgs.args = {
+                    connector: args.connector && this._nativeItemToDiagramItem(args.connector),
+                    newPoints: args.points && args.points.map(pt => { return { x: pt.x, y: pt.y }; }),
+                    oldPoints: args.oldPoints && args.oldPoints.map(pt => { return { x: pt.x, y: pt.y }; })
+                };
+                break;
+            case DiagramModelOperation.BeforeChangeShapeText:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape)
+                };
+                break;
+            case DiagramModelOperation.ChangeShapeText:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    text: args.text
+                };
+                break;
+            case DiagramModelOperation.BeforeChangeConnectorText:
+                eventArgs.args = {
+                    connector: args.connector && this._nativeItemToDiagramItem(args.connector),
+                    index: args.index
+                };
+                break;
+            case DiagramModelOperation.ChangeConnectorText:
+                eventArgs.args = {
+                    connector: args.connector && this._nativeItemToDiagramItem(args.connector),
+                    index: args.index,
+                    text: args.text
+                };
+                break;
+            case DiagramModelOperation.ResizeShape:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    newSize: args.size && { width: args.size.width, height: args.size.height },
+                    oldSize: args.oldSize && { width: args.oldSize.width, height: args.oldSize.height }
+                };
+                break;
+        }
+        return eventArgs;
+    }
     _nativeItemToDiagramItem(nativeItem) {
         const { NativeShape } = getDiagram();
         const createMethod = nativeItem instanceof NativeShape ?
@@ -2314,6 +2552,7 @@ class Diagram extends Widget {
             this._nativeConnectorToDiagramConnector.bind(this);
         return extend({
             id: nativeItem.id,
+            key: nativeItem.key,
             dataItem: undefined
         }, createMethod(nativeItem));
     }
@@ -2322,7 +2561,11 @@ class Diagram extends Widget {
             dataItem: this._nodesOption && this._nodesOption.findItem(nativeShape.key),
             itemType: 'shape',
             text: nativeShape.text,
-            type: nativeShape.type
+            type: nativeShape.type,
+
+            position: { x: nativeShape.position.x, y: nativeShape.position.y },
+            size: { width: nativeShape.size.width, height: nativeShape.size.height },
+            attachedConnectorIds: nativeShape.attachedConnectorIds
         };
     }
     _nativeConnectorToDiagramConnector(nativeConnector) {
@@ -2331,8 +2574,22 @@ class Diagram extends Widget {
             itemType: 'connector',
             texts: nativeConnector.texts,
             fromKey: nativeConnector.fromKey,
-            toKey: nativeConnector.toKey
+            toKey: nativeConnector.toKey,
+
+            fromId: nativeConnector.froId,
+            fromPointIndex: nativeConnector.fromPointIndex,
+            toId: nativeConnector.toId,
+            toPointIndex: nativeConnector.toPointIndex,
+            points: nativeConnector.points.map(pt => {
+                return { x: pt.x, y: pt.y };
+            })
         };
+    }
+    getItemByKey(key) {
+        return this._diagramInstance && this._diagramInstance.getNativeItemByDataKey(key);
+    }
+    getItemById(id) {
+        return this._diagramInstance && this._diagramInstance.getNativeItemByKey(id);
     }
 
     _invalidateContextMenuCommands() {
@@ -2514,11 +2771,20 @@ class Diagram extends Widget {
             case 'onSelectionChanged':
                 this._createSelectionChangedAction();
                 break;
+            case 'onRequestEditOperation':
+                this._createRequestEditOperationAction();
+                break;
+            case 'onRequestLayoutUpdate':
+                this._createRequestLayoutUpdateAction();
+                break;
             case 'onCustomCommand':
                 this._createCustomCommand();
                 break;
             case 'defaultItemProperties':
                 this._updateDefaultItemProperties();
+                break;
+            case 'editing':
+                this._updateEditingSettings();
                 break;
             case 'export':
                 this._toolbars.forEach(toolbar => {

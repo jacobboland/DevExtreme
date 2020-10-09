@@ -1,10 +1,10 @@
-import rangeModule from '../translators/range';
-import { getDateFormatByDifferences } from '../../format_helper';
+import { Range } from '../translators/range';
+import formatHelper from '../../format_helper';
 import dateUtils from '../../core/utils/date';
 import { extend } from '../../core/utils/extend';
 import { generateDateBreaks } from './datetime_breaks';
 import { noop } from '../../core/utils/common';
-import vizUtils from '../core/utils';
+import { getLog, patchFontOptions, getCosAndSin } from '../core/utils';
 import { isDefined } from '../../core/utils/type';
 import constants from './axes_constants';
 
@@ -60,51 +60,6 @@ function sortingBreaks(breaks) {
     return breaks.sort(function(a, b) { return a.from - b.from; });
 }
 
-function filterBreaks(breaks, viewport, breakStyle) {
-    const minVisible = viewport.minVisible;
-    const maxVisible = viewport.maxVisible;
-    const breakSize = breakStyle ? breakStyle.width : 0;
-
-    return breaks.reduce(function(result, currentBreak) {
-        let from = currentBreak.from;
-        let to = currentBreak.to;
-        const lastResult = result[result.length - 1];
-        let newBreak;
-
-        if(!isDefined(from) || !isDefined(to)) {
-            return result;
-        }
-        if(from > to) {
-            to = [from, from = to][0];
-        }
-        if(result.length && from < lastResult.to) {
-            if(to > lastResult.to) {
-                lastResult.to = to > maxVisible ? maxVisible : to;
-                if(lastResult.gapSize) {
-                    lastResult.gapSize = undefined;
-                    lastResult.cumulativeWidth += breakSize;
-                }
-            }
-        } else {
-            if(((from >= minVisible && from < maxVisible) || (to <= maxVisible && to > minVisible)) && to - from < maxVisible - minVisible) {
-                from = from >= minVisible ? from : minVisible;
-                to = to <= maxVisible ? to : maxVisible;
-                newBreak = {
-                    from: from,
-                    to: to,
-                    cumulativeWidth: (lastResult?.cumulativeWidth ?? 0) + breakSize
-                };
-                if(currentBreak.gapSize) {
-                    newBreak.gapSize = dateUtils.convertMillisecondsToDateUnits(to - from);
-                    newBreak.cumulativeWidth = lastResult?.cumulativeWidth ?? 0;
-                }
-                result.push(newBreak);
-            }
-        }
-        return result;
-    }, []);
-}
-
 function getMarkerDates(min, max, markerInterval) {
     const origMin = min;
     let dates;
@@ -154,7 +109,7 @@ function getMarkerFormat(curDate, prevDate, tickInterval, markerInterval) {
     const datesDifferences = prevDate && dateUtils.getDatesDifferences(prevDate, curDate);
     if(prevDate && tickInterval !== 'year') {
         prepareDatesDifferences(datesDifferences, tickInterval);
-        format = getDateFormatByDifferences(datesDifferences);
+        format = formatHelper.getDateFormatByDifferences(datesDifferences);
     }
     return format;
 }
@@ -233,7 +188,7 @@ function generateRangesOnPoints(points, edgePoints, getRange) {
 function generateAutoBreaks({ logarithmBase, type, maxAutoBreakCount }, series, { minVisible, maxVisible }) {
     const breaks = [];
     const getRange = type === 'logarithmic' ?
-        (min, max) => { return vizUtils.getLog(max / min, logarithmBase); } :
+        (min, max) => { return getLog(max / min, logarithmBase); } :
         (min, max) => { return max - min; };
 
     let visibleRange = getRange(minVisible, maxVisible);
@@ -410,7 +365,7 @@ export default {
             }
             const text = this._renderer
                 .text(titleOptions.text, coords.x, coords.y)
-                .css(vizUtils.patchFontOptions(titleOptions.font))
+                .css(patchFontOptions(titleOptions.font))
                 .attr(attrs)
                 .append(group);
 
@@ -464,9 +419,12 @@ export default {
                 y: options.y,
                 cropped: options.withoutStick,
                 label: that._renderer.text(text, options.x, options.y)
-                    .css(vizUtils.patchFontOptions(markerOptions.label.font))
+                    .css(patchFontOptions(markerOptions.label.font))
                     .append(that._axisElementsGroup),
                 line: pathElement,
+                getContentContainer() {
+                    return this.label;
+                },
                 getEnd: function() {
                     return this.x + (invert ? -1 : 1) * (textIndent + this.labelBBox.width);
                 },
@@ -775,7 +733,7 @@ export default {
             }
 
             if(this._validateDisplayMode(drawingType) === 'rotate' || this._validateOverlappingMode(labelOptions.overlappingBehavior, drawingType) === 'rotate') {
-                const sinCos = vizUtils.getCosAndSin(labelOptions.rotationAngle);
+                const sinCos = getCosAndSin(labelOptions.rotationAngle);
                 height = height * sinCos.cos + bBox.width * sinCos.sin;
             }
 
@@ -800,7 +758,7 @@ export default {
                 .append(rootElement);
             const titleElement = that._drawTitleText(rootElement, { x: 0, y: 0 });
             const constantLinesLabelsElement = that._drawConstantLinesForEstimating(constantLineOptions);
-            const labelBox = labelElement && labelElement.getBBox() || { x: 0, y: 0, width: 0, height: 0 };
+            const labelBox = !options.label.template && labelElement && labelElement.getBBox() || { x: 0, y: 0, width: 0, height: 0 };
             const titleBox = titleElement && titleElement.getBBox() || { x: 0, y: 0, width: 0, height: 0 };
             const constantLinesBox = constantLinesLabelsElement.getBBox();
             const titleHeight = titleBox.height ? titleBox.height + options.title.margin : 0;
@@ -984,7 +942,7 @@ export default {
                     range.min = isDefined(seriesRange.min) ? (range.min < seriesRange.min ? range.min : seriesRange.min) : range.min;
                     range.max = isDefined(seriesRange.max) ? (range.max > seriesRange.max ? range.max : seriesRange.max) : range.max;
                     if(s.showZero) {
-                        range = new rangeModule.Range(range);
+                        range = new Range(range);
                         range.correctValueZeroLevel();
                     }
                     return range;
@@ -996,7 +954,7 @@ export default {
                 seriesData.maxVisible = viewport.max;
             }
 
-            seriesData.breaks = that._initialBreaks = that._getScaleBreaks(that._options, {
+            seriesData.userBreaks = that._getScaleBreaks(that._options, {
                 minVisible: seriesData.minVisible,
                 maxVisible: seriesData.maxVisible
             }, that._series, that.isArgumentAxis);
@@ -1077,6 +1035,53 @@ export default {
             return skippedCategory;
         },
 
+        _filterBreaks: function(breaks, viewport, breakStyle) {
+            const minVisible = viewport.minVisible;
+            const maxVisible = viewport.maxVisible;
+            const breakSize = breakStyle ? breakStyle.width : 0;
+
+            return breaks.reduce(function(result, currentBreak) {
+                let from = currentBreak.from;
+                let to = currentBreak.to;
+                const lastResult = result[result.length - 1];
+                let newBreak;
+
+                if(!isDefined(from) || !isDefined(to)) {
+                    return result;
+                }
+                if(from > to) {
+                    to = [from, from = to][0];
+                }
+                if(result.length && from < lastResult.to) {
+                    if(to > lastResult.to) {
+                        lastResult.to = to > maxVisible ? maxVisible : to;
+                        if(lastResult.gapSize) {
+                            lastResult.gapSize = undefined;
+                            lastResult.cumulativeWidth += breakSize;
+                        }
+                    }
+                } else {
+                    if((from >= minVisible && from < maxVisible) || (to <= maxVisible && to > minVisible)) {
+                        from = from >= minVisible ? from : minVisible;
+                        to = to <= maxVisible ? to : maxVisible;
+                        if(to - from < maxVisible - minVisible) {
+                            newBreak = {
+                                from: from,
+                                to: to,
+                                cumulativeWidth: (lastResult?.cumulativeWidth ?? 0) + breakSize
+                            };
+                            if(currentBreak.gapSize) {
+                                newBreak.gapSize = dateUtils.convertMillisecondsToDateUnits(to - from);
+                                newBreak.cumulativeWidth = lastResult?.cumulativeWidth ?? 0;
+                            }
+                            result.push(newBreak);
+                        }
+                    }
+                }
+                return result;
+            }, []);
+        },
+
         _getScaleBreaks: function(axisOptions, viewport, series, isArgumentAxis) {
             const that = this;
             let breaks = (axisOptions.breaks || []).map(function(b) {
@@ -1096,7 +1101,7 @@ export default {
                 && axisOptions.autoBreaksEnabled && axisOptions.maxAutoBreakCount !== 0) {
                 breaks = breaks.concat(generateAutoBreaks(axisOptions, series, viewport));
             }
-            return filterBreaks(sortingBreaks(breaks), viewport, axisOptions.breakStyle);
+            return sortingBreaks(breaks);
         },
 
         _drawBreak: function(translatedEnd, positionFrom, positionTo, width, options, group) {

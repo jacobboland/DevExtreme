@@ -1,6 +1,5 @@
 import { isDefined, isObject } from '../../core/utils/type';
 import { Export } from './export';
-import PivotGrid from '../../ui/pivot_grid';
 
 const privateOptions = {
     _getWorksheetFrozenState: function(dataProvider, cellRange) {
@@ -20,10 +19,14 @@ const privateOptions = {
 
     _needMergeRange: function() {
         return true;
+    },
+
+    _renderLoadPanel: function(component) {
+        component._renderLoadPanel(component._dataArea.groupElement(), component.$element());
     }
 };
 
-export function exportPivotGrid(options) {
+function exportPivotGrid(options) {
     return Export.export(_getFullOptions(options), privateOptions);
 }
 
@@ -31,7 +34,7 @@ function _getFullOptions(options) {
     if(!(isDefined(options) && isObject(options))) {
         throw Error('The "exportPivotGrid" method requires a configuration object.');
     }
-    if(!(isDefined(options.component) && isObject(options.component) && options.component instanceof PivotGrid)) {
+    if(!(isDefined(options.component) && isObject(options.component) && options.component.NAME === 'dxPivotGrid')) {
         throw Error('The "component" field must contain a PivotGrid instance.');
     }
     return Export.getFullOptions(options);
@@ -40,3 +43,5 @@ function _getFullOptions(options) {
 //#DEBUG
 exportPivotGrid.__internals = { _getFullOptions };
 //#ENDDEBUG
+
+export { exportPivotGrid };

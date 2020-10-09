@@ -3079,31 +3079,33 @@ QUnit.module('search', moduleSetup, () => {
         assert.equal($selectBox.find(toSelector(TEXTEDITOR_INPUT_CLASS)).val(), 'Name 2', 'selectBox displays right value');
     });
 
-    QUnit.testInActiveWindow('Value should be null after input is cleared and enter key is tapped', function(assert) {
-        const items = [1, 2];
-        const $selectBox = $('#selectBox').dxSelectBox({
-            searchEnabled: true,
-            items: items,
-            value: items[0],
-            searchTimeout: 0
+    [0, 1].forEach((value) => {
+        QUnit.testInActiveWindow(`Value=${value} should be null after input is cleared and enter key is tapped (T935801)`, function(assert) {
+            const items = [0, 1, 2];
+            const $selectBox = $('#selectBox').dxSelectBox({
+                searchEnabled: true,
+                items: items,
+                value,
+                searchTimeout: 0
+            });
+            const selectBox = $selectBox.dxSelectBox('instance');
+            const $input = $selectBox.find(toSelector(TEXTEDITOR_INPUT_CLASS));
+            const keyboard = keyboardMock($input);
+
+            $input.focus();
+
+            keyboard
+                .press('end')
+                .press('backspace');
+
+            keyboard
+                .press('enter');
+
+            assert.equal($selectBox.dxSelectBox('option', 'value'), null, 'value is null');
+            assert.equal($input.val(), '', 'input is cleared');
+            assert.equal(selectBox.option('selectedItem'), null, 'selectedItem is null');
+            assert.ok(!selectBox.option('opened'), 'popup is closed');
         });
-        const selectBox = $selectBox.dxSelectBox('instance');
-        const $input = $selectBox.find(toSelector(TEXTEDITOR_INPUT_CLASS));
-        const keyboard = keyboardMock($input);
-
-        $input.focus();
-
-        keyboard
-            .press('end')
-            .press('backspace');
-
-        keyboard
-            .press('enter');
-
-        assert.equal($selectBox.dxSelectBox('option', 'value'), null, 'value is null');
-        assert.equal($input.val(), '', 'input is cleared');
-        assert.equal(selectBox.option('selectedItem'), null, 'selectedItem is null');
-        assert.ok(!selectBox.option('opened'), 'popup is closed');
     });
 
     QUnit.testInActiveWindow('Value should not be null after focusOut during loading (T600537)', function(assert) {
@@ -3325,8 +3327,7 @@ QUnit.module('search substitution', {
             searchTimeout: 0,
             searchEnabled: true,
             focusStateEnabled: true,
-            searchMode: 'startswith',
-            autocompletionEnabled: true
+            searchMode: 'startswith'
         });
 
         this.selectBox = this.$selectBox.dxSelectBox('instance');
@@ -3393,44 +3394,6 @@ QUnit.module('search substitution', {
 
         this.keyboard.type('1');
         assert.deepEqual(this.keyboard.caret(), { start: 1, end: 1 }, 'caret is good');
-    });
-
-    QUnit.test('search value should not be substituted if the \'autocompletionEnabled\' is false', function(assert) {
-        this.reinit({
-            items: [this.testItem],
-            searchTimeout: 0,
-            searchEnabled: true,
-            focusStateEnabled: true,
-            searchMode: 'startswith',
-            autocompletionEnabled: false
-        });
-
-        this.keyboard
-            .focus()
-            .type(this.testItem[0]);
-
-        assert.equal(this.$input.val(), this.testItem[0], 'search value is not substituted');
-    });
-
-    QUnit.test('autocompletionEnabled - runtime change', function(assert) {
-        this.reinit({
-            items: [this.testItem],
-            searchTimeout: 0,
-            searchEnabled: true,
-            focusStateEnabled: true,
-            searchMode: 'startswith'
-        });
-
-        this.keyboard
-            .focus()
-            .type(this.testItem[0]);
-
-        this.selectBox.option('autocompletionEnabled', false);
-        this.keyboard
-            .focus()
-            .type(this.testItem[1]);
-
-        assert.equal(this.$input.val(), this.testItem[0] + this.testItem[1], 'search value is not substituted after option runtime change');
     });
 
     QUnit.test('search value is substituted while typing', function(assert) {
@@ -5516,8 +5479,8 @@ if(devices.real().deviceType === 'desktop') {
                 helper.checkAttributes(helper.widget._popup.$content(), { id: helper.widget._popupContentId }, 'popupContent');
             });
 
-            QUnit.test(`opened: false -> searchEnabled: ${!searchEnabled}`, function() {
-                helper.createWidget({ opened: false });
+            QUnit.test(`opened: false, deferRendering: true -> searchEnabled: ${!searchEnabled}`, function() {
+                helper.createWidget({ opened: false, deferRendering: true });
 
                 const inputAttributes = {
                     role: 'combobox',

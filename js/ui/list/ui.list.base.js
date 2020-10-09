@@ -2,7 +2,7 @@ import $ from '../../core/renderer';
 import eventsEngine from '../../events/core/events_engine';
 import { ensureDefined, noop } from '../../core/utils/common';
 import { isPlainObject } from '../../core/utils/type';
-import iconUtils from '../../core/utils/icon';
+import { getImageContainer } from '../../core/utils/icon';
 import { getPublicElement } from '../../core/element';
 import { each } from '../../core/utils/iterator';
 import { compileGetter } from '../../core/utils/data';
@@ -10,13 +10,13 @@ import { extend } from '../../core/utils/extend';
 import fx from '../../animation/fx';
 import { name as clickEventName } from '../../events/click';
 import { end as swipeEventEnd } from '../../events/swipe';
-import support from '../../core/utils/support';
+import { nativeScrolling } from '../../core/utils/support';
 import messageLocalization from '../../localization/message';
-import inkRipple from '../widget/utils.ink_ripple';
+import { render } from '../widget/utils.ink_ripple';
 import devices from '../../core/devices';
 import ListItem from './item';
 import Button from '../button';
-import eventUtils from '../../events/utils';
+import { addNamespace } from '../../events/utils/index';
 import themes from '../themes';
 import { hasWindow } from '../../core/utils/window';
 import ScrollView from '../scroll_view';
@@ -193,6 +193,7 @@ export const ListBase = CollectionWidget.inherit({
 
             wrapItemText: false,
 
+            _swipeEnabled: true,
 
             showChevronExpr: function(data) { return data ? data.showChevron : undefined; },
             badgeExpr: function(data) { return data ? data.badge : undefined; }
@@ -210,7 +211,7 @@ export const ListBase = CollectionWidget.inherit({
         return this.callBase().concat(deviceDependentOptions(), [
             {
                 device: function() {
-                    return !support.nativeScrolling;
+                    return !nativeScrolling;
                 },
                 options: {
                     useNativeScrolling: false
@@ -218,7 +219,7 @@ export const ListBase = CollectionWidget.inherit({
             },
             {
                 device: function(device) {
-                    return !support.nativeScrolling && !devices.isSimulator() && devices.real().deviceType === 'desktop' && device.platform === 'generic';
+                    return !nativeScrolling && !devices.isSimulator() && devices.real().deviceType === 'desktop' && device.platform === 'generic';
                 },
                 options: {
                     showScrollbar: 'onHover',
@@ -320,8 +321,18 @@ export const ListBase = CollectionWidget.inherit({
         return true;
     },
 
+    _resetDataSourcePageIndex: function() {
+        const currentDataSource = this.getDataSource();
+
+        if(currentDataSource && currentDataSource.pageIndex() !== 0) {
+            currentDataSource.pageIndex(0);
+            currentDataSource.load();
+        }
+    },
+
     _init: function() {
         this.callBase();
+        this._resetDataSourcePageIndex();
         this._$container = this.$element();
 
         this._initScrollView();
@@ -415,7 +426,7 @@ export const ListBase = CollectionWidget.inherit({
         this.callBase(data, $container);
 
         if(data.icon) {
-            const $icon = iconUtils.getImageContainer(data.icon).addClass(LIST_ITEM_ICON_CLASS);
+            const $icon = getImageContainer(data.icon).addClass(LIST_ITEM_ICON_CLASS);
             const $iconContainer = $('<div>').addClass(LIST_ITEM_ICON_CONTAINER_CLASS);
 
             $iconContainer.append($icon);
@@ -544,7 +555,7 @@ export const ListBase = CollectionWidget.inherit({
     },
 
     _attachGroupCollapseEvent: function() {
-        const eventName = eventUtils.addNamespace(clickEventName, this.NAME);
+        const eventName = addNamespace(clickEventName, this.NAME);
         const selector = '.' + LIST_GROUP_HEADER_CLASS;
         const $element = this.$element();
         const collapsibleGroups = this.option('collapsibleGroups');
@@ -618,7 +629,7 @@ export const ListBase = CollectionWidget.inherit({
     },
 
     _renderInkRipple: function() {
-        this._inkRipple = inkRipple.render();
+        this._inkRipple = render();
     },
 
     _toggleActiveState: function($element, value, e) {
@@ -652,13 +663,13 @@ export const ListBase = CollectionWidget.inherit({
         this._refreshItemElements();
         this.callBase.apply(this, arguments);
 
-        if(this.option('onItemSwipe')) {
+        if(this.option('_swipeEnabled')) {
             this._attachSwipeEvent($(args.itemElement));
         }
     },
 
     _attachSwipeEvent: function($itemElement) {
-        const endEventName = eventUtils.addNamespace(swipeEventEnd, this.NAME);
+        const endEventName = addNamespace(swipeEventEnd, this.NAME);
 
         eventsEngine.on($itemElement, endEventName, this._itemSwipeEndHandler.bind(this));
     },
@@ -758,6 +769,7 @@ export const ListBase = CollectionWidget.inherit({
             this._$nextButton.remove();
             this._$nextButton = null;
         }
+        delete this._inkRipple;
         this.callBase.apply(this, arguments);
     },
 
@@ -840,11 +852,11 @@ export const ListBase = CollectionWidget.inherit({
             case 'pulledDownText':
             case 'refreshingText':
             case 'pageLoadingText':
-            case 'useNative':
             case 'showScrollbar':
             case 'bounceEnabled':
             case 'scrollByContent':
             case 'scrollByThumb':
+            case 'useNativeScrolling':
             case 'scrollingEnabled':
             case 'pullRefreshEnabled':
                 this._initScrollView();
@@ -859,7 +871,6 @@ export const ListBase = CollectionWidget.inherit({
             case 'onPullRefresh':
             case 'onPageLoading':
                 this._createScrollViewActions();
-                this._invalidate();
                 break;
             case 'grouped':
             case 'collapsibleGroups':
@@ -891,6 +902,8 @@ export const ListBase = CollectionWidget.inherit({
             case 'showChevronExpr':
             case 'badgeExpr':
                 this._invalidate();
+                break;
+            case '_swipeEnabled':
                 break;
             case '_listAttributes':
                 break;

@@ -156,7 +156,7 @@ QUnit.module('Loading root data', moduleConfig, () => {
             assert.equal(data.rows.length, 0, 'rows should not be loaded');
             assert.equal(data.columns.length, 0, 'columns should not be loaded');
             assert.equal(data.rows.length, 0, 'rows should not be loaded');
-            assert.deepEqual(data.values, [[[]]], 'values is an empty 3-dimensional array');
+            assert.deepEqual(data.values, [], 'values is an empty 1-dimensional array');
             assert.deepEqual(loadSpy.lastCall.args[0], {
                 group: undefined,
                 groupSummary: [],
@@ -1541,6 +1541,60 @@ QUnit.module('Expanding items', moduleConfig, () => {
 
             assert.equal(data.rows.length, 3, 'rows count');
             assert.equal(data.rows[0].value, 1, 'first row value is correct');
+        });
+    });
+
+    ['rowExpandedPaths', 'columnExpandedPaths'].forEach(expandedPathOptionName => {
+        QUnit.test(`${expandedPathOptionName}. One expanded date field. Redundant filter value (T758282)`, function(assert) {
+            const dataSource = { date: new Date(2010, 1, 1), anotherField: 'field' };
+
+            let actualFilter = [];
+            const store = new RemoteStore({
+                store: getCustomArrayStore(dataSource),
+                load: function(e) {
+                    if(e.filter) {
+                        actualFilter = e.filter;
+                    }
+                }
+            });
+
+            const loadOptions = {
+                rows: [{ dataField: expandedPathOptionName === 'rowExpandedPaths' ? 'date' : 'anotherField' }],
+                columns: [{ dataField: expandedPathOptionName === 'columnExpandedPaths' ? 'date' : 'anotherField' }]
+            };
+            loadOptions[expandedPathOptionName] = [[2010], [2010, 1]];
+            store.load(loadOptions).done(function() {
+                assert.deepEqual(actualFilter, [['date', '=', 2010]], 'rows count');
+            });
+        });
+
+        QUnit.test(`${expandedPathOptionName}. Two expanded date fields. Redundant filter value (T758282)`, function(assert) {
+            const dataSource = { date1: new Date(2010, 1, 1), date2: new Date(2010, 1, 1), anotherField: 'field' };
+
+            let actualFilter = [];
+            const store = new RemoteStore({
+                store: getCustomArrayStore(dataSource),
+                load: function(e) {
+                    if(e.filter) {
+                        actualFilter = e.filter;
+                    }
+                }
+            });
+
+            const loadOptions = {
+                rows: [
+                    { dataField: expandedPathOptionName === 'rowExpandedPaths' ? 'date1' : 'anotherField' },
+                    { dataField: expandedPathOptionName === 'rowExpandedPaths' ? 'date2' : 'anotherField' }
+                ],
+                columns: [
+                    { dataField: expandedPathOptionName === 'columnExpandedPaths' ? 'date1' : 'anotherField' },
+                    { dataField: expandedPathOptionName === 'columnExpandedPaths' ? 'date2' : 'anotherField' }
+                ]
+            };
+            loadOptions[expandedPathOptionName] = [[2010], [2010, 2010, 1]];
+            store.load(loadOptions).done(function() {
+                assert.deepEqual(actualFilter, [[['date1', '=', 2010]], 'and', [['date2', '=', 2010]]], 'rows count');
+            });
         });
     });
 

@@ -1,5 +1,5 @@
 import config from '../../core/config';
-import iteratorUtils from '../../core/utils/iterator';
+import { map, each } from '../../core/utils/iterator';
 import dateSerialization from '../../core/utils/date_serialization';
 import { getRecurrenceProcessor } from './recurrence';
 import dateUtils from '../../core/utils/date';
@@ -7,7 +7,7 @@ import { equalByValue } from '../../core/utils/common';
 import { isFunction, isDefined, isString } from '../../core/utils/type';
 import { inArray } from '../../core/utils/array';
 import { extend } from '../../core/utils/extend';
-import arrayUtils from '../../core/utils/array';
+import { wrapToArray } from '../../core/utils/array';
 import query from '../../data/query';
 import { Deferred } from '../../core/utils/deferred';
 
@@ -173,8 +173,8 @@ class AppointmentModel {
                 resource = resourceGetter(appointment);
             }
 
-            const appointmentResourceValues = arrayUtils.wrapToArray(resource);
-            const resourceData = iteratorUtils.map(resources[i].items, (item) => { return item.id; });
+            const appointmentResourceValues = wrapToArray(resource);
+            const resourceData = map(resources[i].items, (item) => { return item.id; });
 
             for(let j = 0, itemDataCount = appointmentResourceValues.length; j < itemDataCount; j++) {
                 if(inArray(appointmentResourceValues[j], resourceData) > -1) {
@@ -214,11 +214,11 @@ class AppointmentModel {
             max = new Date(trimmedDates.max.getTime() - toMs('minute'));
         }
 
-        if(recurrenceRule && !recurrenceProcessor.evalRecurrenceRule(recurrenceRule).isValid) {
+        if(recurrenceRule && !recurrenceProcessor.isValidRecurrenceRule(recurrenceRule)) {
             result = (appointmentEndDate > min) && (appointmentStartDate <= max);
         }
 
-        if(result && recurrenceProcessor.evalRecurrenceRule(recurrenceRule).isValid) {
+        if(result && recurrenceProcessor.isValidRecurrenceRule(recurrenceRule)) {
             result = recurrenceProcessor.hasRecurrence({
                 rule: recurrenceRule,
                 exception: recurrenceException,
@@ -241,7 +241,7 @@ class AppointmentModel {
                    (apptEndDayHour >= endDayHour && apptStartDayHour <= endDayHour && apptStartDayHour >= startDayHour);
     }
 
-    _createCombinedFilter(filterOptions, timeZoneProcessor) {
+    _createCombinedFilter(filterOptions, timeZoneCalculator) {
         const dataAccessors = this._dataAccessors;
         const startDayHour = filterOptions.startDayHour;
         const endDayHour = filterOptions.endDayHour;
@@ -277,8 +277,15 @@ class AppointmentModel {
 
             const startDateTimeZone = dataAccessors.getter.startDateTimeZone(appointment);
             const endDateTimeZone = dataAccessors.getter.endDateTimeZone(appointment);
-            const comparableStartDate = timeZoneProcessor(startDate, startDateTimeZone);
-            const comparableEndDate = timeZoneProcessor(endDate, endDateTimeZone);
+
+            const comparableStartDate = timeZoneCalculator.createDate(startDate, {
+                appointmentTimeZone: startDateTimeZone,
+                path: 'toGrid'
+            });
+            const comparableEndDate = timeZoneCalculator.createDate(endDate, {
+                appointmentTimeZone: endDateTimeZone,
+                path: 'toGrid'
+            });
 
             if(result && useRecurrence) {
                 const recurrenceException = getRecurrenceException ? getRecurrenceException(appointment) : dataAccessors.getter.recurrenceException(appointment);
@@ -420,14 +427,8 @@ class AppointmentModel {
         return filter;
     }
 
-    filterLoadedAppointments(filterOptions, timeZoneProcessor) {
-        if(!isFunction(timeZoneProcessor)) {
-            timeZoneProcessor = (date) => {
-                return date;
-            };
-        }
-
-        const combinedFilter = this._createCombinedFilter(filterOptions, timeZoneProcessor);
+    _createAppointmentFilter(filterOptions, timeZoneCalculator) {
+        const combinedFilter = this._createCombinedFilter(filterOptions, timeZoneCalculator);
 
         if(this._filterMaker.isRegistered()) {
             this._filterMaker.make('user', undefined);
@@ -436,12 +437,47 @@ class AppointmentModel {
 
             this._filterMaker.make('date', [trimmedDates.min, trimmedDates.max, true]);
 
-            const dateFilter = this.customizeDateFilter(this._filterMaker.combine(), timeZoneProcessor);
+            const dateFilter = this.customizeDateFilter(this._filterMaker.combine(), timeZoneCalculator);
 
             combinedFilter.push([dateFilter]);
         }
 
+        return combinedFilter;
+    }
+
+    filterLoadedAppointments(filterOption, timeZoneCalculator) {
+        const combinedFilter = this._createAppointmentFilter(filterOption, timeZoneCalculator);
         return query(this._dataSource.items()).filter(combinedFilter).toArray();
+    }
+
+    filterLoadedVirtualAppointments(filterOptions, timeZoneCalculator, groupCount) {
+        const combinedFilters = [];
+        const dataItems = this._dataSource.items();
+
+        let itemsToFilter = dataItems;
+        const needPreFilter = groupCount > 0;
+        if(needPreFilter) {
+            itemsToFilter = dataItems.filter(item => {
+                for(let i = 0; i < filterOptions.length; ++i) {
+                    const { resources } = filterOptions[i];
+                    if(this._filterAppointmentByResources(item, resources)) {
+                        return true;
+                    }
+                }
+            });
+        }
+
+        filterOptions.forEach(filterOption => {
+            combinedFilters.length && combinedFilters.push('or');
+
+            const filter = this._createAppointmentFilter(filterOption, timeZoneCalculator);
+
+            combinedFilters.push(filter);
+        });
+
+        return query(itemsToFilter)
+            .filter(combinedFilters)
+            .toArray();
     }
 
     _trimDates(min, max) {
@@ -464,7 +500,7 @@ class AppointmentModel {
         const that = this;
 
         let result = false;
-        iteratorUtils.each(items, (index, item) => {
+        each(items, (index, item) => {
             if(that.appointmentTakesAllDay(item, startDayHour, endDayHour)) {
                 result = true;
                 return false;
@@ -512,7 +548,7 @@ class AppointmentModel {
         return !dateUtils.sameDate(startDate, endDate);
     }
 
-    customizeDateFilter(dateFilter, timeZoneProcessor) {
+    customizeDateFilter(dateFilter, timeZoneCalculator) {
         const currentFilter = extend(true, [], dateFilter);
 
         return ((appointment) => {
@@ -526,8 +562,14 @@ class AppointmentModel {
             const startDateTimeZone = this._dataAccessors.getter.startDateTimeZone(appointment);
             const endDateTimeZone = this._dataAccessors.getter.endDateTimeZone(appointment);
 
-            const comparableStartDate = timeZoneProcessor(startDate, startDateTimeZone);
-            const comparableEndDate = timeZoneProcessor(endDate, endDateTimeZone);
+            const comparableStartDate = timeZoneCalculator.createDate(startDate, {
+                appointmentTimeZone: startDateTimeZone,
+                path: 'toGrid'
+            });
+            const comparableEndDate = timeZoneCalculator.createDate(endDate, {
+                appointmentTimeZone: endDateTimeZone,
+                path: 'toGrid'
+            });
 
             this._dataAccessors.setter.startDate(appointment, comparableStartDate);
             this._dataAccessors.setter.endDate(appointment, comparableEndDate);

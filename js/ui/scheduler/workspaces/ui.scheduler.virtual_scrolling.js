@@ -1,12 +1,134 @@
-import typeUtils from '../../../core/utils/type';
+import domAdapter from '../../../core/dom_adapter';
+import eventsEngine from '../../../events/core/events_engine';
+import { getWindow } from '../../../core/utils/window';
+import { addNamespace } from '../../../events/utils/index';
 
 const ROW_HEIGHT = 50;
+const MIN_SCROLL_OFFSET = 10;
+const VIRTUAL_APPOINTMENTS_RENDER_TIMEOUT = 25;
+const DOCUMENT_SCROLL_EVENT_NAMESPACE = addNamespace('scroll', 'dxSchedulerVirtualScrolling');
 
-export default class VirtualScrolling {
-    constructor(workspace, viewportHeight, scrollable) {
+export default class VirtualScrollingDispatcher {
+    constructor(workspace) {
+        this._workspace = workspace;
+        this._virtualScrolling = null;
+
+        this._createVirtualScrolling();
+
+        this._attachScrollableEvents();
+    }
+
+    get workspace() { return this._workspace; }
+
+    get isVirtualScrolling() { return this.workspace.isVirtualScrolling(); }
+
+    get minScrollOffset() { return MIN_SCROLL_OFFSET; }
+
+    get virtualScrolling() { return this._virtualScrolling; }
+    set virtualScrolling(value) { this._virtualScrolling = value; }
+
+    get document() { return domAdapter.getDocument(); }
+
+    get height() {
+        return this.workspace.invoke('getOption', 'height');
+    }
+
+    get viewportHeight() {
+        return this.height
+            ? this.workspace.$element().height()
+            : getWindow().innerHeight;
+    }
+
+    getRenderTimeout() {
+        return VIRTUAL_APPOINTMENTS_RENDER_TIMEOUT;
+    }
+
+    getState() {
+        return this.virtualScrolling.getState();
+    }
+
+    dispose() {
+        if(this._onScrollHandler) {
+            eventsEngine.off(this.document, DOCUMENT_SCROLL_EVENT_NAMESPACE, this._onScrollHandler);
+        }
+    }
+
+    _createVirtualScrolling() {
+        this.virtualScrolling = new VirtualScrolling(
+            this.workspace,
+            this.viewportHeight
+        );
+    }
+
+    _attachScrollableEvents() {
+        this.height
+            ? this._attachScrollableScroll()
+            : this._attachWindowScroll();
+    }
+
+    _attachScrollableScroll() {
+        const scrollable = this.workspace.getScrollable();
+        const currentOnScroll = scrollable.option('onScroll');
+
+        scrollable.option('onScroll', e => {
+
+            currentOnScroll?.apply(scrollable, [e]);
+
+            this._process(e?.scrollOffset);
+        });
+    }
+
+    _attachWindowScroll() {
+        const window = getWindow();
+
+        this._onScrollHandler = this.workspace._createAction(() => {
+            const {
+                scrollX,
+                scrollY
+            } = window;
+
+            if(scrollX >= this.minScrollOffset || scrollY >= this.minScrollOffset) {
+                this._process({
+                    left: scrollX,
+                    top: scrollY,
+                });
+            }
+        });
+
+        eventsEngine.on(this.document, DOCUMENT_SCROLL_EVENT_NAMESPACE, this._onScrollHandler);
+    }
+
+    _process(scrollPosition) {
+        scrollPosition
+            && this.virtualScrolling.updateState(scrollPosition)
+            && this._updateWorkspace();
+    }
+
+    _updateWorkspace() {
+        const { workspace } = this;
+        const renderTimeout = this.getRenderTimeout();
+
+        workspace.renderRWorkspace(false);
+
+        if(renderTimeout >= 0) {
+
+            clearTimeout(this._renderAppointmentTimeout);
+
+            this._renderAppointmentTimeout = setTimeout(
+                () => workspace.invoke('renderAppointments'),
+                renderTimeout
+            );
+        } else {
+            workspace.invoke('renderAppointments');
+        }
+    }
+}
+
+class VirtualScrolling {
+    constructor(workspace, viewportHeight) {
         this._workspace = workspace;
         this._viewportHeight = viewportHeight;
-        this._scrollable = scrollable;
+        this._renderAppointmentTimeout = null;
 
         this._init();
     }
@@ -20,10 +142,6 @@ export default class VirtualScrolling {
         return this._viewportHeight;
     }
 
-    getScrollable() {
-        return this._scrollable;
-    }
-
     getRowHeight() {
         return ROW_HEIGHT;
     }
@@ -32,262 +150,170 @@ export default class VirtualScrolling {
         return this._state;
     }
 
-    getLayoutMap() {
-        return this.getState().layoutMap;
+    _getPageSize() {
+        return Math.ceil(this.getViewportHeight() / this.getRowHeight());
     }
 
-    _setLayoutMap(layoutMap) {
-        return this._state.layoutMap = layoutMap;
+    _getOutlineCount() {
+        return Math.floor(this._getPageSize() / 2);
     }
 
     _init() {
-        const pageSize = Math.ceil(this.getViewportHeight() / this.getRowHeight());
-        const scrollOffset = {
+        const scrollPosition = {
             top: 0,
             left: 0
         };
 
         this._state = {
-            pageSize: pageSize,
-            scrollOffset: scrollOffset,
+            pageSize: this._getPageSize(),
+            prevScrollPosition: scrollPosition,
             startIndex: -1,
             rowCount: 0,
             topVirtualRowCount: 0,
             bottomVirtualRowCount: 0,
-            layoutMap: {
-                topVirtualRowHeight: 0,
-                dataItems: [],
-                bottomVirtualRowHeight: 0
-            }
+            topOutlineCount: 0,
+            bottomOutlineCount: 0,
+            topVirtualRowHeight: 0,
+            bottomVirtualRowHeight: 0,
+            topOutlineHeight: 0,
+            bottomOutlineHeight: 0
         };
 
-        this._updateState(scrollOffset);
-
-        this._attachScrollableEvent();
+        this.updateState(scrollPosition);
     }
 
-    _attachScrollableEvent() {
-        const scrollable = this.getScrollable();
-        const onScroll = scrollable.option('onScroll');
-        scrollable.option('onScroll', e => {
-            if(onScroll) {
-                onScroll.apply(scrollable, [e]);
-            }
-
-            const scrollOffset = e?.scrollOffset;
-            if(scrollOffset && this._updateState(scrollOffset)) {
-                // Renovative render
-            }
-        });
-    }
-
-    _updateState(scrollOffset) {
-        const workspace = this.getWorkspace();
+    needUpdateState(scrollPosition) {
         const state = this.getState();
-        const top = scrollOffset.top;
-        const currentStartIndex = state.startIndex;
+        const top = scrollPosition.top;
+        const currentTopPosition = state.prevScrollPosition.top;
         const rowHeight = this.getRowHeight();
+        const currentTopRowsCount = Math.floor(currentTopPosition / rowHeight);
+        const isFirstInitialization = state.startIndex < 0;
+        const topRowsCount = Math.floor(top / rowHeight);
+        const isStartIndexChanged = Math.abs(currentTopRowsCount - topRowsCount) > this._getOutlineCount();
 
-        state.scrollOffset = scrollOffset;
-        state.startIndex = Math.floor(top / rowHeight);
+        return isFirstInitialization || isStartIndexChanged;
+    }
 
-        if(currentStartIndex !== state.startIndex) {
-            const pageSize = state.pageSize;
-            const groupCount = workspace._getGroupCount();
-
-            const totalRowCount = workspace._getTotalRowCount(groupCount);
-            const topVirtualRowCount = Math.floor(top / rowHeight);
-            const deltaRowCount = totalRowCount - topVirtualRowCount;
-            const rowCount = deltaRowCount >= pageSize ? pageSize : deltaRowCount;
-            const bottomVirtualRowCount = totalRowCount - topVirtualRowCount - rowCount;
-
-            state.topVirtualRowCount = topVirtualRowCount;
-            state.rowCount = rowCount;
-            state.bottomVirtualRowCount = bottomVirtualRowCount;
-
-            this._updateLayoutMap();
-
-            this._validateState();
-
-            return true;
+    updateState(scrollPosition) {
+        if(!this.needUpdateState(scrollPosition)) {
+            return false;
         }
 
-        return false;
+        const topRowsInfo = this._calcTopRowsInfo(scrollPosition);
+        const topRowsDelta = this._calcTopRowsDelta(topRowsInfo);
+        const {
+            bottomOutlineCount,
+            bottomVirtualRowCount,
+            rowCountWithBottom
+        } = this._calcBottomRowsInfo(topRowsDelta);
+
+        const {
+            topVirtualRowCount,
+            topOutlineCount
+        } = topRowsInfo;
+
+        const rowCount = topOutlineCount + rowCountWithBottom + bottomOutlineCount;
+
+        const { top } = scrollPosition;
+        const topRowsCount = Math.floor(top / this.getRowHeight());
+
+        const state = this.getState();
+
+        state.prevScrollPosition = scrollPosition;
+        state.startIndex = topRowsCount - topOutlineCount;
+        state.topVirtualRowCount = topVirtualRowCount;
+        state.topOutlineCount = topOutlineCount;
+        state.rowCount = rowCount;
+        state.bottomOutlineCount = bottomOutlineCount;
+        state.bottomVirtualRowCount = bottomVirtualRowCount;
+
+        this._updateStateCore();
+
+        return true;
     }
 
-    _updateLayoutMap() {
+    _calcTopRowsInfo(scrollPosition) {
+        const { top } = scrollPosition;
+        const rowHeight = this.getRowHeight();
+        let topVirtualRowCount = Math.floor(top / rowHeight);
+        const topOutlineCount = Math.min(topVirtualRowCount, this._getOutlineCount());
+
+        topVirtualRowCount -= topOutlineCount;
+
+        return {
+            topVirtualRowCount,
+            topOutlineCount
+        };
+    }
+
+    _calcTopRowsDelta(topRowsInfo) {
+        const {
+            topVirtualRowCount,
+            topOutlineCount
+        } = topRowsInfo;
+
         const workspace = this.getWorkspace();
         const groupCount = workspace._getGroupCount();
-        const options = {
-            cellCount: workspace._getTotalCellCount(groupCount),
-            cellClass: workspace._getDateTableCellClass.bind(workspace),
-            rowClass: workspace._getDateTableRowClass(),
-            cellTemplate: workspace.option('dataCellTemplate'),
-            getCellData: workspace._getCellData.bind(workspace),
-            allDayElements: workspace._insertAllDayRowsIntoDateTable() ? workspace._allDayPanels : undefined,
-            groupCount: groupCount,
-            groupByDate: workspace.option('groupByDate')
-        };
+        const isVerticalGrouping = workspace._isVerticalGroupedWorkSpace();
+        const totalRowCount = workspace._getTotalRowCount(groupCount, isVerticalGrouping);
 
-        this._updateLayoutMapCore(options);
+        return totalRowCount - topVirtualRowCount - topOutlineCount;
     }
 
-    _updateLayoutMapCore(options) {
+    _calcBottomRowsInfo(topRowsDelta) {
+        const { pageSize } = this.getState();
+        const rowCountWithBottom = topRowsDelta >= pageSize
+            ? pageSize
+            : topRowsDelta;
+
+        let bottomVirtualRowCount = topRowsDelta - rowCountWithBottom;
+
+        const bottomOutlineCount = bottomVirtualRowCount > 0
+            ? Math.min(bottomVirtualRowCount, this._getOutlineCount())
+            : 0;
+
+        if(bottomVirtualRowCount > 0) {
+            bottomVirtualRowCount -= bottomOutlineCount;
+        }
+
+        return {
+            bottomVirtualRowCount,
+            bottomOutlineCount,
+            rowCountWithBottom
+        };
+    }
+
+    _updateStateCore() {
         const state = this.getState();
         const rowHeight = this.getRowHeight();
         const topVirtualRowCount = state.topVirtualRowCount;
         const bottomVirtualRowCount = state.bottomVirtualRowCount;
-        const dataRowCount = state.rowCount;
+        const topOutlineCount = state.topOutlineCount;
+        const bottomOutlineCount = state.bottomOutlineCount;
 
-        let rowCountInGroup = dataRowCount;
-        if(options.groupCount) {
-            rowCountInGroup = dataRowCount / options.groupCount;
-        }
+        const prevTopVirtualRowHeight = state.topVirtualRowHeight;
+        const prevBottomVirtualRowHeight = state.bottomVirtualRowHeight;
+        const prevTopOutlineHeight = state.topOutlineHeight;
+        const prevBottomOutlineHeight = state.bottomOutlineHeight;
 
-        const layoutMap = this.getLayoutMap();
-        let dataItems = layoutMap.dataItems.slice(0, dataRowCount);
-
-        const prevTopVirtualRowHeight = layoutMap.topVirtualRowHeight;
-        const prevBottomVirtualRowHeight = layoutMap.bottomVirtualRowHeight;
         const topVirtualRowHeight = rowHeight * topVirtualRowCount;
         const bottomVirtualRowHeight = rowHeight * bottomVirtualRowCount;
+        const topOutlineHeight = rowHeight * topOutlineCount;
+        const bottomOutlineHeight = rowHeight * bottomOutlineCount;
 
-        let addRowCount = 0;
-        const isAppend = prevTopVirtualRowHeight < topVirtualRowHeight;
-        const isPrepend = prevBottomVirtualRowHeight < bottomVirtualRowHeight;
+        const prevTopVirtualHeight = prevTopVirtualRowHeight + prevTopOutlineHeight;
+        const topVirtualHeight = topVirtualRowHeight + topOutlineHeight;
+        const prevBottomVirtualHeight = prevBottomVirtualRowHeight + prevBottomOutlineHeight;
+        const bottomVirtualHeight = bottomVirtualRowHeight + bottomOutlineHeight;
+
+        const isAppend = prevTopVirtualHeight < topVirtualHeight;
+        const isPrepend = prevBottomVirtualHeight < bottomVirtualHeight;
         const needAddRows = isAppend || isPrepend;
 
         if(needAddRows) {
-            if(isAppend) {
-                addRowCount = Math.ceil((topVirtualRowHeight - prevTopVirtualRowHeight) / rowHeight);
-            } else {
-                addRowCount = Math.ceil((bottomVirtualRowHeight - prevBottomVirtualRowHeight) / rowHeight);
-            }
-
-            addRowCount = Math.min(addRowCount, dataRowCount);
-
-            dataItems = this._populateLayoutMap(options, dataItems, addRowCount, rowCountInGroup, isAppend);
-
-            layoutMap.dataItems = dataItems;
-            layoutMap.topVirtualRowHeight = topVirtualRowHeight;
-            layoutMap.bottomVirtualRowHeight = bottomVirtualRowHeight;
+            state.topVirtualRowHeight = topVirtualRowHeight;
+            state.bottomVirtualRowHeight = bottomVirtualRowHeight;
         }
-    }
-
-    _populateLayoutMap(options, dataItems, addRowCount, rowCountInGroup, isAppend) {
-        const state = this.getState();
-        const dataRowCount = state.rowCount;
-        const topVirtualRowCount = state.topVirtualRowCount;
-        const isEmptyData = dataItems.length === 0;
-
-        if(!isEmptyData) {
-            let deltaRowCount = 0;
-            if(dataRowCount > dataItems.length) {
-                deltaRowCount = dataRowCount - dataItems.length;
-            }
-
-            if(isAppend) {
-                dataItems = dataItems.slice(addRowCount);
-            } else {
-                dataItems.splice(-addRowCount);
-            }
-
-            addRowCount += deltaRowCount;
-        }
-
-        if(isAppend) {
-            for(let index = 0; index < addRowCount; ++index) {
-                const rowIndex = dataItems.length + topVirtualRowCount;
-                const rowModel = this._createLayoutMapRow(options, rowIndex, rowCountInGroup);
-                dataItems.push(rowModel);
-            }
-        } else {
-            const startIndex = state.startIndex;
-            const prependRows = new Array(addRowCount);
-            for(let index = addRowCount - 1; index >= 0; --index) {
-                const rowIndex = startIndex + index;
-                const rowModel = this._createLayoutMapRow(options, rowIndex, rowCountInGroup);
-                prependRows[index] = rowModel;
-            }
-
-            dataItems = [...prependRows, ...dataItems];
-        }
-
-        return dataItems;
-    }
-
-    _createLayoutMapRow(options, rowIndex, rowCountInGroup) {
-        const cells = this._populateLayoutMapCells(options, rowIndex);
-        const isLastRowInGroup = (rowIndex + 1) % rowCountInGroup === 0;
-
-        const rowModel = {
-            rowIndex: rowIndex,
-            className: options.rowClass,
-            cells: cells,
-            needInsertAllDayRow: options.allDayElements && isLastRowInGroup
-        };
-
-        return rowModel;
-    }
-
-    _populateLayoutMapCells(options, rowIndex) {
-        const cellsMap = [];
-        const cellClass = options.cellClass;
-
-        for(let cellIndex = 0; cellIndex < options.cellCount; cellIndex++) {
-            const cellModel = {
-                cellIndex: cellIndex
-            };
-
-            if(cellClass) {
-                if(options.cellClass) {
-                    if(typeUtils.isFunction(options.cellClass)) {
-                        cellModel.className = options.cellClass(rowIndex, cellIndex);
-                    } else {
-                        cellModel.className = options.cellClass;
-                    }
-                }
-            }
-
-            cellModel.cellTemplate = options.cellTemplate;
-            cellsMap.push(cellModel);
-        }
-
-        return cellsMap;
-    }
-
-    dispose() {
-    }
-
-    _getStateLogRecursive(target) {
-        const propertyNames = Object.getOwnPropertyNames(target);
-        const logArgs = [];
-        propertyNames.forEach(name => {
-            const property = target[name];
-            if(!property || typeof property !== 'object') {
-                logArgs.push(`${name}: ${property}`);
-            } else {
-                logArgs.push(`\n\t${name}:`);
-                const args = this._getStateLogRecursive(property);
-                logArgs.push(...args);
-            }
-        });
-        return logArgs;
-    }
-
-    _validateState() {
-        const dataItems = this.getLayoutMap().dataItems;
-
-        for(let i = 1; i < dataItems.length; ++i) {
-            const rowIndex = dataItems[i].rowIndex;
-            const prevRowIndex = dataItems[i - 1].rowIndex;
-            const diffRowIndex = rowIndex - prevRowIndex;
-            if(diffRowIndex !== 1) {
-                const delta = Math.abs(rowIndex - prevRowIndex);
-                throw `Error Row indices: rowIndex=${rowIndex}, prevIndex=${prevRowIndex}, delta=${delta}`;
-            }
-        }
-
-        return true;
     }
 }

@@ -1,20 +1,19 @@
 import { extend } from '../core/utils/extend';
 import { each } from '../core/utils/iterator';
-import vizUtils from './core/utils';
-import uiThemes from '../ui/themes';
+import { normalizeEnum } from './core/utils';
+import { current as getCurrentTheme } from '../ui/themes';
 const themes = {};
 const themesMapping = {};
 const themesSchemeMapping = {};
 const _extend = extend;
 const _each = each;
-const _normalizeEnum = vizUtils.normalizeEnum;
 let currentThemeName = null;
 let defaultTheme;
 let nextCacheUid = 0;
 const widgetsCache = {};
 
 export function getTheme(themeName) {
-    const name = _normalizeEnum(themeName);
+    const name = normalizeEnum(themeName);
     return themes[name] || themes[themesMapping[name] || currentTheme()];
 }
 
@@ -28,11 +27,11 @@ function findThemeNameByPlatform(platform, version, scheme) {
 
 export function currentTheme(themeName, colorScheme) {
     if(!arguments.length) {
-        return currentThemeName || findThemeNameByName(uiThemes.current()) || defaultTheme;
+        return currentThemeName || findThemeNameByName(getCurrentTheme()) || defaultTheme;
     }
 
-    const scheme = _normalizeEnum(colorScheme);
-    currentThemeName = (themeName && themeName.platform ? findThemeNameByPlatform(_normalizeEnum(themeName.platform), themeName.version, scheme) : findThemeNameByName(_normalizeEnum(themeName), scheme)) || currentThemeName;
+    const scheme = normalizeEnum(colorScheme);
+    currentThemeName = (themeName && themeName.platform ? findThemeNameByPlatform(normalizeEnum(themeName.platform), themeName.version, scheme) : findThemeNameByName(normalizeEnum(themeName), scheme)) || currentThemeName;
     // For chaining only
     return this;
 }
@@ -55,7 +54,7 @@ function registerThemeName(themeName, targetThemeName) {
 }
 
 export function registerTheme(theme, baseThemeName) {
-    const themeName = _normalizeEnum(theme && theme.name);
+    const themeName = normalizeEnum(theme && theme.name);
     if(themeName) {
         theme.isDefault && (defaultTheme = themeName);
         registerThemeName(themeName, themeName);
@@ -63,9 +62,6 @@ export function registerTheme(theme, baseThemeName) {
     }
 }
 
-export function registerThemeAlias(alias, theme) {
-    registerThemeName(_normalizeEnum(alias), _normalizeEnum(theme));
-}
 
 export function registerThemeSchemeAlias(from, to) {
     themesSchemeMapping[from] = to;
@@ -137,7 +133,7 @@ function patchTheme(theme) {
         theme[section] = theme[section] || {};
         mergeObject(theme[section], 'commonAxisSettings', null, theme['chart:common:axis']);
     });
-    _each(['chart', 'polar', 'map'], function(_, section) {
+    _each(['chart', 'polar', 'map', 'pie'], function(_, section) {
         theme[section] = theme[section] || {};
         mergeObject(theme[section], 'commonAnnotationSettings', null, theme['chart:common:annotation']);
     });

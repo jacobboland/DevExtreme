@@ -3,7 +3,7 @@
 @use "../colors" as *;
 @use "sizes" as *;
 @use "../sizes" as *;
-@use "../common" as *;
+@use "../common/sizes" as *;
 
 // adduse
 @use "../dropDownList";
@@ -26,7 +26,7 @@
 .dx-autocomplete.dx-invalid,
 .dx-autocomplete.dx-valid {
   .dx-texteditor-container {
-    &:after {
+    &::after {
       @include autocomplete-badge-offset();
     }
   }

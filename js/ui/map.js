@@ -11,7 +11,7 @@ import { each } from '../core/utils/iterator';
 import { extend } from '../core/utils/extend';
 import { inArray } from '../core/utils/array';
 import { isNumeric } from '../core/utils/type';
-import { addNamespace } from '../events/utils';
+import { addNamespace } from '../events/utils/index';
 import pointerEvents from '../events/pointer';
 import { wrapToArray } from '../core/utils/array';
 
@@ -420,11 +420,11 @@ const Map = Widget.inherit({
                 result = wrapToArray(result);
 
                 const mapRefreshed = result[0];
-                if(mapRefreshed) {
+                if(mapRefreshed && !this._disposed) {
                     this._triggerReadyAction();
                 }
                 ///#DEBUG
-                if(!mapRefreshed && name !== 'clean') {
+                if(!mapRefreshed && name !== 'clean' && !this._disposed) {
                     this._triggerUpdateAction();
                 }
                 ///#ENDDEBUG

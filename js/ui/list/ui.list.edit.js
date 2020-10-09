@@ -1,5 +1,5 @@
 import $ from '../../core/renderer';
-import { isTouchEvent } from '../../events/utils';
+import { isTouchEvent } from '../../events/utils/index';
 import { extend } from '../../core/utils/extend';
 import GroupedEditStrategy from './ui.list.edit.strategy.grouped';
 import { format as formatMessage } from '../../localization/message';
@@ -88,14 +88,6 @@ const ListEdit = ListBase.inherit({
         }
     },
 
-    _setDeprecatedOptions: function() {
-        this.callBase();
-
-        extend(this._deprecatedOptions, {
-            allowItemReordering: { since: '19.2', alias: 'itemDragging.allowReordering' }
-        });
-    },
-
     _getDefaultOptions() {
         return extend(this.callBase(), {
             showSelectionControls: false,
@@ -132,11 +124,7 @@ const ListEdit = ListBase.inherit({
 
             itemDeleteMode: 'static',
 
-            allowItemReordering: false,
-
             itemDragging: {}
-
-
         });
     },
 
@@ -301,7 +289,6 @@ const ListEdit = ListBase.inherit({
             case 'menuMode':
             case 'allowItemDeleting':
             case 'itemDeleteMode':
-            case 'allowItemReordering':
             case 'itemDragging':
             case 'selectAllText':
                 this._invalidate();

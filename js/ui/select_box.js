@@ -8,7 +8,7 @@ import { Deferred, fromPromise } from '../core/utils/deferred';
 import { getPublicElement } from '../core/element';
 import errors from '../core/errors';
 import domAdapter from '../core/dom_adapter';
-import inkRipple from './widget/utils.ink_ripple';
+import { render } from './widget/utils.ink_ripple';
 import messageLocalization from '../localization/message';
 import registerComponent from '../core/component_registrator';
 import DropDownList from './drop_down_editor/ui.drop_down_list';
@@ -102,7 +102,7 @@ const SelectBox = DropDownList.inherit({
                 const inputText = this._input().val().trim();
                 const isCustomText = inputText && this._list && !this._list.option('focusedElement');
 
-                if(!inputText && this.option('value') && this.option('allowClearing')) {
+                if(!inputText && isDefined(this.option('value')) && this.option('allowClearing')) {
                     this.option({
                         selectedItem: null,
                         value: null
@@ -162,14 +162,6 @@ const SelectBox = DropDownList.inherit({
             showSelectionControls: false,
 
             /**
-            * @name dxSelectBoxOptions.autocompletionEnabled
-            * @type boolean
-            * @default true
-            * @hidden
-            */
-            autocompletionEnabled: true,
-
-            /**
             * @name dxSelectBoxOptions.allowClearing
             * @type boolean
             * @default true
@@ -185,7 +177,6 @@ const SelectBox = DropDownList.inherit({
 
             displayCustomValue: false,
 
-            _isAdaptablePopupPosition: false,
             useInkRipple: false,
             useHiddenSubmitElement: true
         });
@@ -206,7 +197,7 @@ const SelectBox = DropDownList.inherit({
     },
 
     _renderInkRipple: function() {
-        this._inkRipple = inkRipple.render();
+        this._inkRipple = render();
     },
 
     _toggleActiveState: function($element, value, e) {
@@ -783,8 +774,7 @@ const SelectBox = DropDownList.inherit({
     },
 
     _shouldSubstitutionBeRendered: function() {
-        return this.option('autocompletionEnabled')
-            && !this._preventSubstitution
+        return !this._preventSubstitution
             && this.option('searchEnabled')
             && !this.option('acceptCustomValue')
             && this.option('searchMode') === 'startswith';
@@ -831,9 +821,6 @@ const SelectBox = DropDownList.inherit({
 
     _optionChanged: function(args) {
         switch(args.name) {
-            case '_isAdaptablePopupPosition':
-            case 'autocompletionEnabled':
-                break;
             case 'onCustomItemCreating':
                 this._initCustomItemCreatingAction();
                 break;

@@ -2,14 +2,16 @@ import $ from '../../core/renderer';
 import { noop } from '../../core/utils/common';
 import eventsEngine from '../../events/core/events_engine';
 import { isDefined, isObject, isFunction } from '../../core/utils/type';
-import { isWrapped } from '../../core/utils/variable_wrapper';
+import variableWrapper from '../../core/utils/variable_wrapper';
 import { compileGetter } from '../../core/utils/data';
 import browser from '../../core/utils/browser';
 import { extend } from '../../core/utils/extend';
 import devices from '../../core/devices';
 import { getPublicElement } from '../../core/element';
 import { normalizeDataSourceOptions } from '../../data/data_source/utils';
-import { normalizeKeyName } from '../../events/utils';
+import { normalizeKeyName } from '../../events/utils/index';
+
+const { isWrapped } = variableWrapper;
 
 import '../text_box';
 import '../number_box';

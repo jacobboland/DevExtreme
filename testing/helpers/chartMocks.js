@@ -965,6 +965,8 @@ export const MockAxis = function(renderOptions) {
 
         hideOuterElements: sinon.spy(),
 
+        getCorrectedValuesToZero: sinon.stub().returns({}),
+
         setPane: function(pane) {
             this.pane = pane;
             this._options.pane = pane;
@@ -1102,7 +1104,10 @@ export const MockAxis = function(renderOptions) {
         setCustomVisualRange: sinon.spy(),
         handleZoomEnd: sinon.spy(),
         resolveOverlappingForCustomPositioning: sinon.spy(),
-        resetApplyingAnimation: sinon.spy()
+        resetApplyingAnimation: sinon.spy(),
+        getTemplatesDef: sinon.spy(),
+        setRenderedState: sinon.spy(),
+        isRendered: sinon.spy()
     };
 };
 

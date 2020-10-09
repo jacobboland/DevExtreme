@@ -4,19 +4,20 @@ import { isDefined, isPlainObject } from '../../core/utils/type';
 import dateUtils from '../../core/utils/date';
 import { each } from '../../core/utils/iterator';
 import errors from '../widget/ui.errors';
-import translator from '../../animation/translator';
+import { locate } from '../../animation/translator';
 import { grep } from '../../core/utils/common';
 import { extend } from '../../core/utils/extend';
 import { inArray } from '../../core/utils/array';
-import SchedulerTimezones from './timezones/ui.scheduler.timezones';
 import { Deferred } from '../../core/utils/deferred';
 import dateLocalization from '../../localization/date';
 import timeZoneUtils from './utils.timeZone';
 import { AGENDA_LAST_IN_DATE_APPOINTMENT_CLASS } from './constants';
 import utils from './utils';
 
+const HOURS_IN_DAY = 24;
 const MINUTES_IN_HOUR = 60;
 const toMs = dateUtils.dateToMilliseconds;
+const HOUR_MS = toMs('hour');
 
 const subscribes = {
     isCurrentViewAgenda: function() {
@@ -30,12 +31,20 @@ const subscribes = {
         this.option('currentDate', date);
     },
 
+    getOption: function(name) {
+        return this.option(name);
+    },
+
+    isVirtualScrolling: function() {
+        return this.isVirtualScrolling();
+    },
+
     setCellDataCacheAlias: function(appointment, geometry) {
         this._workSpace.setCellDataCacheAlias(appointment, geometry);
     },
 
-    createAppointmentSettings: function(args) {
-        return this._createAppointmentSettings(args.appointmentData); // TODO: temporary solution
+    createAppointmentSettings: function(appointment) {
+        return this._getAppointmentSettingsGenerator().create(appointment);
     },
 
     isGroupedByDate: function() {
@@ -203,7 +212,6 @@ const subscribes = {
         const dateFormat = 'monthandday';
         const timeFormat = 'shorttime';
         const isSameDate = startDate.getDate() === endDate.getDate();
-        const isDurationLessThanDay = (endDate.getTime() - startDate.getTime()) <= toMs('day');
 
         switch(formatType) {
             case 'DATETIME':
@@ -218,7 +226,7 @@ const subscribes = {
             case 'TIME':
                 return `${dateLocalization.format(startDate, timeFormat)} - ${dateLocalization.format(endDate, timeFormat)}`;
             case 'DATE':
-                return `${dateLocalization.format(startDate, dateFormat)}${isDurationLessThanDay || isSameDate ? '' : ' - ' + dateLocalization.format(endDate, dateFormat)}`;
+                return `${dateLocalization.format(startDate, dateFormat)}${isSameDate ? '' : ' - ' + dateLocalization.format(endDate, dateFormat)}`;
         }
     },
 
@@ -408,7 +416,7 @@ const subscribes = {
 
         each(horizontalResizables, (function(_, el) {
             const $el = $(el);
-            const position = translator.locate($el);
+            const position = locate($el);
             const appointmentData = this._appointments._getItemData($el);
 
             const area = this._appointments._calculateResizableArea({
@@ -456,6 +464,10 @@ const subscribes = {
         return obj;
     },
 
+    renderAppointments: function() {
+        this._renderAppointments();
+    },
+
     prerenderFilter: function() {
         const dateRange = this.getWorkSpace().getDateRange();
         const resources = this._resourcesManager.getResourcesData();
@@ -474,7 +486,54 @@ const subscribes = {
             allDay: allDay,
             firstDayOfWeek: this.getFirstDayOfWeek(),
             recurrenceException: this._getRecurrenceException.bind(this),
-        }, this._subscribes['convertDateByTimezone'].bind(this));
+        }, this.timeZoneCalculator);
+    },
+
+    prerenderFilterVirtual: function() {
+        const workspace = this.getWorkSpace();
+        const resourcesManager = this._resourcesManager;
+
+        let allDay = this.option('showAllDayPanel') || !this._workSpace.supportAllDayRow();
+
+        const { viewDataProvider } = workspace;
+        const { groupedData } = viewDataProvider.viewData;
+        const groupedDataToRender = groupedData.filter(({ dateTable }) => dateTable.length > 0);
+        const isVerticalGrouping = workspace._isVerticalGroupedWorkSpace();
+        const endViewDate = workspace.getEndViewDateByEndDayHour();
+        const filterOptions = [];
+
+        groupedDataToRender.forEach(({ groupIndex, allDayPanel }) => {
+            const startDate = viewDataProvider.getGroupStartDate(groupIndex);
+            const endDate = new Date(Math.min(viewDataProvider.getGroupEndDate(groupIndex), endViewDate));
+            const startDayHour = startDate.getHours();
+            const endDayHour = (startDayHour + (endDate - startDate) / HOUR_MS) % HOURS_IN_DAY;
+
+            allDay = (allDay !== false) && allDayPanel?.length > 0;
+
+            const groups = viewDataProvider.getCellsGroup(groupIndex);
+            const groupResources = isVerticalGrouping
+                ? resourcesManager.getResourcesDataByGroups(groups)
+                : resourcesManager.getResourcesData();
+
+            filterOptions.push({
+                startDayHour,
+                endDayHour,
+                min: startDate,
+                max: endDate,
+                resources: groupResources,
+                allDay: allDay,
+                firstDayOfWeek: this.getFirstDayOfWeek(),
+                recurrenceException: this._getRecurrenceException.bind(this)
+            });
+        });
+
+        const result = this._appointmentModel.filterLoadedVirtualAppointments(
+            filterOptions,
+            this.timeZoneCalculator,
+            workspace._getGroupCount()
+        );
+
+        return result;
     },
 
     dayHasAppointment: function(day, appointment, trimTime) {
@@ -588,7 +647,7 @@ const subscribes = {
 
     getClientTimezoneOffset: function(date) {
         date = date || new Date();
-        return SchedulerTimezones.getClientTimezoneOffset(date);
+        return timeZoneUtils.getClientTimezoneOffset(date);
     },
 
     convertDateByTimezone: function(date, appointmentTimezone, skipAppointmentTimezone) {
@@ -645,25 +704,9 @@ const subscribes = {
 
         return {
             client: clientTimezoneOffset,
-            common: commonTimezoneOffset,
+            common: isDefined(commonTimezoneOffset) ? commonTimezoneOffset : clientTimezoneOffset,
             appointment: appointmentTimezoneOffset
         };
-    },
-
-    getTimezonesDisplayName: function() {
-        return SchedulerTimezones.getTimezonesDisplayName();
-    },
-
-    getTimezoneDisplayNameById: function(id) {
-        return SchedulerTimezones.getTimezoneDisplayNameById(id);
-    },
-
-    getSimilarTimezones: function(id) {
-        return SchedulerTimezones.getSimilarTimezones(id);
-    },
-
-    getTimezonesIdsByDisplayName: function(displayName) {
-        return SchedulerTimezones.getTimezonesIdsByDisplayName(displayName);
     },
 
     getTargetedAppointmentData: function(appointment, element) {
@@ -755,6 +798,6 @@ const subscribes = {
 
     removeDroppableCellClass: function() {
         this._workSpace.removeDroppableCellClass();
-    }
+    },
 };
 export default subscribes;

@@ -1,1 +1,2 @@
-export type EffectReturn = (() => void) | void;
+export type DisposeEffectReturn = (() => void);
+export type EffectReturn = DisposeEffectReturn | void;

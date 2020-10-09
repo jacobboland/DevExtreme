@@ -1,12 +1,19 @@
 const $ = require('jquery');
-const noop = require('core/utils/common').noop;
+const mock = require('../../helpers/mockModule.js').mock;
 const vizMocks = require('../../helpers/vizMocks.js');
+const { ChartTracker } = require('viz/chart_components/tracker');
+const ChartTrackerSub = vizMocks.stubClass(ChartTracker);
+const trackerModule = mock('viz/chart_components/tracker', {
+    ChartTracker: sinon.spy((parameters) => new ChartTrackerSub(parameters))
+});
+const noop = require('core/utils/common').noop;
 const executeAsyncMock = require('../../helpers/executeAsyncMock.js');
 const vizUtils = require('viz/core/utils');
 const titleModule = require('viz/core/title');
 const exportModule = require('viz/core/export');
 const tooltipModule = require('viz/core/tooltip');
 const rendererModule = require('viz/core/renderers/renderer');
+const { Deferred } = require('core/utils/deferred');
 const StubTooltip = vizMocks.stubClass(tooltipModule.Tooltip);
 const legendModule = require('viz/components/legend');
 const layoutManagerModule = require('viz/chart_components/layout_manager');
@@ -17,8 +24,6 @@ const CustomStore = require('data/custom_store');
 const chartThemeManagerModule = require('viz/components/chart_theme_manager');
 const scrollBarModule = require('viz/chart_components/scroll_bar');
 const ScrollBar = scrollBarModule.ScrollBar;
-const trackerModule = require('viz/chart_components/tracker');
-const ChartTrackerSub = vizMocks.stubClass(trackerModule.ChartTracker);
 const dxChart = require('viz/chart');
 const chartMocks = require('../../helpers/chartMocks.js');
 const MockSeries = chartMocks.MockSeries;
@@ -59,9 +64,6 @@ function getLegendStub() {
     return legendModule.Legend.lastCall.returnValue;
 }
 
-trackerModule.ChartTracker = sinon.spy(function(parameters) {
-    return new ChartTrackerSub(parameters);
-});
 
 function getTrackerStub() {
     return trackerModule.ChartTracker.lastCall.returnValue;
@@ -1034,6 +1036,34 @@ const environment = {
         assert.ok(!chart._crosshairCursorGroup.stub('clear').called, 'crosshair should not be cleared');
         assert.ok(!getTrackerStub().stub('update').calledTwice, 'Tracker should not be prepared');
     };
+
+    QUnit.module('Axis templates', environment);
+
+    QUnit.test('Redraw chart after render templates', function(assert) {
+        const drawn = sinon.spy();
+        const chart = this.createChart({
+            tooltip: { enabled: false },
+            dataSource: [{ arg: 1, val: 1 }],
+            onDrawn: drawn
+        });
+        resetMocksInChart(chart);
+        const defs = [];
+
+        function getDeferred() {
+            const d = new Deferred();
+            defs.push(d);
+            return d;
+        }
+
+        $.each(chart._argumentAxes, function(_, axis) { axis.getTemplatesDef = getDeferred; });
+        $.each(chart._valueAxes, function(_, axis) { axis.getTemplatesDef = getDeferred; });
+
+        drawn.reset();
+        chart.render({ force: true });
+        $.each(defs, function(_, d) { d.resolve(); });
+
+        assert.strictEqual(drawn.callCount, 2);
+    });
 
     QUnit.module('DataSource updating', {
         beforeEach: function() {

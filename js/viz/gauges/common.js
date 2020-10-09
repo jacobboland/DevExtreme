@@ -3,7 +3,7 @@ import { isDefined as _isDefined, isNumeric as _isNumber } from '../../core/util
 import { each } from '../../core/utils/iterator';
 import { extend } from '../../core/utils/extend';
 const _isArray = Array.isArray;
-import axisModule from '../axes/base_axis';
+import { Axis } from '../axes/base_axis';
 import { map as _map } from '../core/utils';
 import { normalizeEnum as _normalizeEnum } from '../core/utils';
 import { compareArrays as _compareArrays } from './base_gauge';
@@ -63,13 +63,14 @@ export const dxGauge = dxBaseGauge.inherit({
         const that = this;
 
         that._scaleGroup = that._renderer.g().attr({ 'class': 'dxg-scale' }).linkOn(that._renderer.root, 'scale');
-        that._scale = new axisModule.Axis({
+        that._scale = new Axis({
             incidentOccurred: that._incidentOccurred,
             renderer: that._renderer,
             axesContainerGroup: that._scaleGroup,
             axisType: that._scaleTypes.type,
             drawingType: that._scaleTypes.drawingType,
-            widgetClass: 'dxg'
+            widgetClass: 'dxg',
+            getTemplate() {}
         });
     },
 
@@ -191,7 +192,7 @@ export const dxGauge = dxBaseGauge.inherit({
         const startValue = bounds[0];
         const endValue = bounds[1];
         const angles = that._translator.getCodomain();
-        const invert = startValue > endValue;
+        const invert = !!(startValue > endValue ^ scaleOptions.inverted);
         const min = _min(startValue, endValue);
         const max = _max(startValue, endValue);
 
@@ -200,6 +201,7 @@ export const dxGauge = dxBaseGauge.inherit({
         scaleOptions.startAngle = SHIFT_ANGLE - angles[0];
         scaleOptions.endAngle = SHIFT_ANGLE - angles[1];
         scaleOptions.skipViewportExtending = true;
+        scaleOptions.inverted = invert;
         that._scale.updateOptions(scaleOptions);
         that._scale.setBusinessRange({
             axisType: 'continuous',

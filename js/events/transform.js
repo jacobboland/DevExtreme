@@ -1,6 +1,6 @@
 import { sign as mathSign, fitIntoRange } from '../core/utils/math';
 import iteratorUtils from '../core/utils/iterator';
-import { hasTouches } from './utils';
+import { hasTouches } from './utils/index';
 import Emitter from './core/emitter';
 import registerEmitter from './core/emitter_registrator';
 
@@ -206,35 +206,6 @@ const TransformEmitter = Emitter.inherit({
   * @type_function_param1 event:event
   * @type_function_param1_field1 translation:object
   * @type_function_param1_field2 deltaTranslation:object
-  * @type_function_param1_field3 cancel:boolean
-  * @module events/transform
-*/
-
-/**
- * @name UI Events.dxzoomstart
- * @type eventType
- * @deprecated UI Events.dxpinchstart
- * @type_function_param1 event:event
- * @type_function_param1_field1 cancel:boolean
- * @module events/transform
-*/
-/**
-  * @name UI Events.dxzoom
-  * @type eventType
-  * @deprecated UI Events.dxpinch
-  * @type_function_param1 event:event
-  * @type_function_param1_field1 scale:number
-  * @type_function_param1_field2 deltaScale:number
-  * @type_function_param1_field3 cancel:boolean
-  * @module events/transform
-*/
-/**
-  * @name UI Events.dxzoomend
-  * @type eventType
-  * @deprecated UI Events.dxpinchend
-  * @type_function_param1 event:event
-  * @type_function_param1_field1 scale:number
-  * @type_function_param1_field2 deltaScale:number
   * @type_function_param1_field3 cancel:boolean
   * @module events/transform
 */

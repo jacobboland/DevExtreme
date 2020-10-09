@@ -4,6 +4,7 @@
 @use "sizes" as *;
 @use "../sizes" as *;
 @use "../colorView/colors" as *;
+@use "../../base/colorBox";
 
 // adduse
 @use "../colorView";
@@ -22,7 +23,7 @@
       }
     }
 
-    &:after {
+    &::after {
       left: $material-colorbox-preview-left + 1;
     }
   }

@@ -898,18 +898,22 @@ QUnit.module('Real DataController and ColumnsController', {
         // act
         that.gridView.render($('#container'));
 
-        let $cell = $(that.rowsView.element().find('.dx-row').eq(1).find('td').eq(1));
+        let $cell = $(this.getCellElement(1, 1));
         $cell.trigger(CLICK_EVENT);
+
+        // assert
+        assert.ok($cell.hasClass('dx-cell-focus-disabled'), 'cell has focus-disabled class');
+
         this.triggerKeyDown('pageDown', false, false, $(':focus').get(0));
 
         this.clock.tick();
 
         // assert
-        $cell = that.rowsView.element().find('.dx-row').eq(1).find('td').eq(1);
+        $cell = $(this.getCellElement(1, 1));
         assert.equal($cell.text(), '888888');
         assert.strictEqual($cell.attr('tabIndex'), '0');
-        assert.ok($cell.is(':focus'), 'focus');
-        assert.ok($cell.hasClass('dx-cell-focus-disabled'));
+        assert.ok($cell.is(':focus'), 'cell is focused');
+        assert.ok($cell.hasClass('dx-cell-focus-disabled'), 'cell has focus-disabled class');
         assert.ok(this.keyboardNavigationController._focusedCellPosition, 'focusedCellPosition');
         assert.equal(this.keyboardNavigationController._focusedCellPosition.columnIndex, 1, 'cellIndex');
         assert.equal(this.keyboardNavigationController._focusedCellPosition.rowIndex, 1, 'rowIndex');
@@ -1209,13 +1213,13 @@ QUnit.module('Real DataController and ColumnsController', {
         that.editCell(0, 0);
         that.clock.tick();
 
+        browser.msie && $(that.getCellElement(0, 0)).focus(); // should be removed after the IE death
+
         const $input = $(that.getCellElement(0, 0)).find('input');
         $input.val('test').trigger('change');
-
         that.clock.tick();
 
         $input.trigger($.Event('keydown', { key: 'Enter' }));
-
         that.clock.tick();
 
         // assert

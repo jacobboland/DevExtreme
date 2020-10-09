@@ -1,12 +1,12 @@
 import $ from '../../core/renderer';
 import { extend } from '../../core/utils/extend';
 import eventsEngine from '../../events/core/events_engine';
-import { addNamespace } from '../../events/utils';
+import { addNamespace } from '../../events/utils/index';
 import { name as clickEventName } from '../../events/click';
 import { getImageContainer } from '../../core/utils/icon';
 import Overlay from '../overlay';
-import inkRipple from '../widget/utils.ink_ripple';
-import themes from '../themes';
+import { render } from '../widget/utils.ink_ripple';
+import { isMaterial } from '../themes';
 
 const FAB_CLASS = 'dx-fa-button';
 const FAB_ICON_CLASS = 'dx-fa-button-icon';
@@ -30,7 +30,7 @@ class SpeedDialItem extends Overlay {
         return super._defaultOptionsRules().concat([
             {
                 device() {
-                    return themes.isMaterial();
+                    return isMaterial();
                 },
                 options: {
                     useInkRipple: true
@@ -166,7 +166,7 @@ class SpeedDialItem extends Overlay {
     }
 
     _renderInkRipple() {
-        this._inkRipple = inkRipple.render();
+        this._inkRipple = render();
     }
 
     _getInkRippleContainer() {

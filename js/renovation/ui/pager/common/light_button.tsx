@@ -1,10 +1,10 @@
 import {
-  Component, ComponentBindings, JSXComponent, OneWay, Slot, Event, Ref, Effect,
+  Component, ComponentBindings, JSXComponent, OneWay, Slot, Event, Ref, Effect, Consumer,
 } from 'devextreme-generator/component_declaration/common';
-import { registerKeyboardAction } from '../../../../ui/shared/accessibility';
-import { PAGER_CLASS } from './consts';
-import { closestClass } from '../utils/closest_class';
 import { subscribeToClickEvent } from '../../../utils/subscribe_to_event';
+import { DisposeEffectReturn, EffectReturn } from '../../../utils/effect_return.d';
+import { EventCallback } from '../../common/event_callback.d';
+import { KeyboardActionContext, KeyboardActionContextType } from './keyboard_action_context';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const viewFunction = ({
@@ -25,35 +25,32 @@ export const viewFunction = ({
   </div>
 );
 
+/* istanbul ignore next: class has only props default */
 @ComponentBindings()
 export class LightButtonProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   @Slot() children?: any;
 
-  @OneWay() className?: string = '';
+  @OneWay() className = '';
 
-  @OneWay() label?: string = '';
+  @OneWay() label = '';
+  /* istanbul ignore next: EventCallback cannot be tested */
 
-  @Event() onClick?: () => void;
+  @Event() onClick!: EventCallback;
 }
 
-function createActionByOption(): () => void {
-  return (): void => { };
-}
 @Component({ defaultOptionRules: null, view: viewFunction })
-export class LightButton extends JSXComponent(LightButtonProps) {
+export class LightButton extends JSXComponent<LightButtonProps, 'onClick'>() {
   @Ref() widgetRef!: HTMLDivElement;
 
-  @Effect() keyboardEffect(): (() => void) {
-    const fakePagerInstance = {
-      option: (): boolean => false,
-      element: (): HTMLElement | null => closestClass(this.widgetRef, PAGER_CLASS),
-      _createActionByOption: createActionByOption,
-    };
-    return registerKeyboardAction('pager', fakePagerInstance, this.widgetRef, undefined, this.props.onClick);
+  @Consumer(KeyboardActionContext)
+  keyboardContext!: KeyboardActionContextType;
+
+  @Effect() keyboardEffect(): EffectReturn {
+    return this.keyboardContext.registerKeyboardAction(this.widgetRef, this.props.onClick);
   }
 
-  @Effect() subscribeToClick(): (() => void) | undefined {
+  @Effect() subscribeToClick(): DisposeEffectReturn {
     return subscribeToClickEvent(this.widgetRef, this.props.onClick);
   }
 }

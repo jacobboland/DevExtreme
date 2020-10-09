@@ -15,7 +15,7 @@ import { extend } from '../core/utils/extend';
 import { inArray } from '../core/utils/array';
 import { each } from '../core/utils/iterator';
 import messageLocalization from '../localization/message';
-import { addNamespace, normalizeKeyName } from '../events/utils';
+import { addNamespace, normalizeKeyName } from '../events/utils/index';
 import { name as clickEvent } from '../events/click';
 import caret from './text_box/utils.caret';
 import { normalizeLoadResult } from '../data/data_source/utils';
@@ -887,15 +887,17 @@ const TagBox = SelectBox.inherit({
         }
 
         if(!isPlainDataUsed) {
-            this._loadTagsData().always((items) => {
-                if(this._disposed) {
-                    d.reject();
-                    return;
-                }
+            this._loadTagsData()
+                .done((items) => {
+                    if(this._disposed) {
+                        d.reject();
+                        return;
+                    }
 
-                this._renderTagsImpl(items);
-                d.resolve();
-            });
+                    this._renderTagsImpl(items);
+                    d.resolve();
+                })
+                .fail(d.reject);
         }
 
         return d.promise();
@@ -1259,7 +1261,7 @@ const TagBox = SelectBox.inherit({
     },
 
     _refreshSelected: function() {
-        this._list && this._list.option('selectedItems', this._selectedItems);
+        this._list?.getDataSource() && this._list.option('selectedItems', this._selectedItems);
     },
 
     _resetListDataSourceFilter: function() {
@@ -1370,7 +1372,11 @@ const TagBox = SelectBox.inherit({
     },
 
     _setListDataSource: function() {
+        const currentValue = this._getValue();
         this.callBase();
+        if(currentValue !== this.option('value')) {
+            this.option('value', currentValue);
+        }
         this._refreshSelected();
     },
 

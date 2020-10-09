@@ -240,7 +240,7 @@ QUnit.module('dxDropDownEditor', testEnvironment, () => {
         dropDownEditor.open();
 
         assert.ok(dropDownEditor._$validationMessage);
-        const pos = dropDownEditor._$validationMessage.dxOverlay('option', 'position');
+        const pos = dropDownEditor._validationMessage.option('position');
         assert.equal(pos.my, 'left bottom', 'Message should be above dropdown');
         assert.equal(pos.at, 'left top', 'Message should be above dropdown');
     });
@@ -257,7 +257,7 @@ QUnit.module('dxDropDownEditor', testEnvironment, () => {
         dropDownEditor.close();
         // assert
         assert.ok(dropDownEditor._$validationMessage);
-        const pos = dropDownEditor._$validationMessage.dxOverlay('option', 'position');
+        const pos = dropDownEditor._validationMessage.option('position');
         assert.equal(pos.my, 'left top', 'Message should be below dropdown');
         assert.equal(pos.at, 'left bottom', 'Message should be below dropdown');
     });
@@ -889,6 +889,14 @@ QUnit.module('deferRendering', () => {
         });
 
         assert.equal($('.dx-dropdowneditor-overlay').length, 1, 'content is not rendered');
+    });
+
+    QUnit.test('popup is rendered immediately when deferRendering is changed to false in runtime', function(assert) {
+        const dropDownEditor = $('#dropDownEditorLazy').dxDropDownEditor({}).dxDropDownEditor('instance');
+
+        assert.strictEqual(dropDownEditor._popup, undefined, 'popup is not rendered');
+        dropDownEditor.option('deferRendering', false);
+        assert.ok(dropDownEditor._popup, 'popup is rendered after runtime option change');
     });
 });
 

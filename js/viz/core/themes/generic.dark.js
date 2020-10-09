@@ -1,6 +1,4 @@
-import themeModule from '../../themes';
-const registerTheme = themeModule.registerTheme;
-const registerThemeAlias = themeModule.registerThemeAlias;
+import { registerTheme } from '../../themes';
 const WHITE = '#ffffff';
 const BLACK = '#000000';
 const SOME_GREY = '#2b2b2b';
@@ -262,4 +260,4 @@ registerTheme({
     }
 }, 'generic.light');
 
-registerThemeAlias('generic.dark.compact', 'generic.dark');
+registerTheme({ name: 'generic.dark.compact' }, 'generic.dark');

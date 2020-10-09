@@ -65,6 +65,7 @@
         "dxFileUploader-upload": "Μεταφόρτωση",
         "dxFileUploader-uploaded": "Μεταφορτώθηκε",
         "dxFileUploader-readyToUpload": "Έτοιμο προς μεταφόρτωση",
+        "dxFileUploader-uploadAbortedMessage": "TODO",
         "dxFileUploader-uploadFailedMessage": "Η μεταφόρτωση απέτυχε",
         "dxFileUploader-invalidFileExtension": "Ο τυπος του αρχείου δεν είναι επιτρεπτός",
         "dxFileUploader-invalidMaxFileSize": "Το αρχείο είναι πολύ μεγάλο",
@@ -121,7 +122,7 @@
         "dxDataGrid-sortingClearText": "Εκκαθάριση ταξινόμισης",
         "dxDataGrid-editingSaveAllChanges": "Αποθήκευση αλλαγών",
         "dxDataGrid-editingCancelAllChanges": "Απόρριψη αλλαγών",
-        "dxDataGrid-editingAddRow": "Προσθήλη γραμμής",
+        "dxDataGrid-editingAddRow": "Προσθήκη γραμμής",
         "dxDataGrid-summaryMin": "Min: {0}",
         "dxDataGrid-summaryMinOtherColumn": "Min of {1} is {0}",
         "dxDataGrid-summaryMax": "Max: {0}",
@@ -164,7 +165,7 @@
 
         "dxPager-infoText": "Σελίδα {0} από {1} ({2} αντικείμενα)",
         "dxPager-pagesCountText": "από",
-
+        "dxPager-pageSizesAllText": "Όλα",
         "dxPivotGrid-grandTotal": "Σύνολο",
         "dxPivotGrid-total": "{0} Σύνολο",
         "dxPivotGrid-fieldChooserTitle": "Επιλογέας πεδίου",
@@ -292,6 +293,9 @@
         "dxHtmlEditor-dialogImageAltField": "Εναλλακτικό κείμενο",
         "dxHtmlEditor-dialogImageWidthField": "Πλάτος (px)",
         "dxHtmlEditor-dialogImageHeightField": "Υψος (px)",
+        "dxHtmlEditor-dialogInsertTableRowsField": "!TODO",
+        "dxHtmlEditor-dialogInsertTableColumnsField": "!TODO",
+        "dxHtmlEditor-dialogInsertTableCaption": "!TODO",
         "dxHtmlEditor-heading": "Επικεφαλίδα",
         "dxHtmlEditor-normalText": "Κανονικό κείμενο",
 

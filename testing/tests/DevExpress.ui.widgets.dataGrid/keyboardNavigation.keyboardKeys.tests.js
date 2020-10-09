@@ -939,7 +939,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: true };
+        $.extend(this.options.editing, { allowUpdating: true });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -1820,7 +1820,7 @@ QUnit.module('Keyboard keys', {
             };
 
             // act
-            this.options.editing = { allowUpdating: true };
+            $.extend(this.options.editing, { allowUpdating: true });
             this.gridView.render($container);
 
             this.focusFirstCell();
@@ -1908,7 +1908,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: true };
+        $.extend(this.options.editing, { allowUpdating: true });
         this.gridView.render($container);
 
         this.focusFirstCell();
@@ -1933,10 +1933,10 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = {
+        $.extend(this.options.editing, {
             allowUpdating: true,
             mode: 'batch'
-        };
+        });
 
         this.gridView.render($container);
         this.focusFirstCell();
@@ -1965,10 +1965,10 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = {
+        $.extend(this.options.editing, {
             allowUpdating: true,
             mode: 'cell'
-        };
+        });
 
         this.gridView.render($container);
         this.focusFirstCell();
@@ -1998,7 +1998,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: false };
+        $.extend(this.options.editing, { allowUpdating: false });
         this.gridView.render($container);
 
         this.focusFirstCell();
@@ -2014,7 +2014,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -2026,7 +2026,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), 0, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, 2, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 2, 'edit column index');
     });
 
     QUnit.testInActiveWindow('Edit cell should not lose focus after enter key', function(assert) {
@@ -2037,7 +2037,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -2071,7 +2071,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -2081,7 +2081,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), 0, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, 0, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 0, 'edit column index');
 
         // act
         this.triggerKeyDown('enter', false, false, false, {
@@ -2092,7 +2092,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), 0, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, 0, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 0, 'edit column index');
 
         // act
         this.triggerKeyDown('enter');
@@ -2100,7 +2100,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), -1, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, -1, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), -1, 'edit column index');
     });
 
     QUnit.testInActiveWindow('Edit cell after enter key (\'cell\' edit mode)', function(assert) {
@@ -2108,7 +2108,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = { allowUpdating: true, mode: 'cell' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'cell' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -2118,14 +2118,14 @@ QUnit.module('Keyboard keys', {
         this.triggerKeyDown('enter');
 
         assert.equal(this.editingController._getVisibleEditRowIndex(), 0, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, 2, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 2, 'edit column index');
     });
 
     QUnit.testInActiveWindow('Edit next cell after tab key', function(assert) {
         // arrange
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -2137,10 +2137,11 @@ QUnit.module('Keyboard keys', {
 
         // act
         const isPreventDefaultCalled = that.triggerKeyDown('tab', false, false, $('#container').find('input')).preventDefault;
+        this.clock.tick();
 
         // assert
         assert.equal(that.editingController._getVisibleEditRowIndex(), 1, 'edit row index');
-        assert.equal(that.editingController._editColumnIndex, 2, 'edit column index');
+        assert.equal(that.editingController._getVisibleEditColumnIndex(), 2, 'edit column index');
         assert.ok(isPreventDefaultCalled, 'preventDefault is called');
     });
 
@@ -2149,7 +2150,7 @@ QUnit.module('Keyboard keys', {
         // arrange
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.keyboardNavigationController._focusedCellPosition = { rowIndex: 1, columnIndex: 1 };
@@ -2320,7 +2321,7 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -2351,7 +2352,7 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = { editEnabled: true, editMode: 'batch' };
+        $.extend(this.options.editing, { editEnabled: true, editMode: 'batch' });
         this.gridView.render($('#container'));
 
         this.editCell(0, 1);
@@ -2380,7 +2381,7 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         const $lastCell = this.rowsView.element().find('.dx-row').filter(':visible').last().find('td').last();
@@ -2412,7 +2413,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         this.options.scrolling = { mode: 'virtual' };
-        this.options.editing = { mode: 'batch' };
+        $.extend(this.options.editing, { mode: 'batch' });
         this.gridView.render($('#container'));
 
         this.editCell(0, 1);
@@ -2463,9 +2464,10 @@ QUnit.module('Keyboard keys', {
 
         const $lastCell = this.rowsView.element().find('.dx-row').filter(':visible').last().find('td').eq(1);
 
-        this.keyboardNavigationController._focusedCellPosition = { rowIndex: 1, columnIndex: 1 };
+        this.keyboardNavigationController.setFocusedCellPosition(1, 1);
 
         // act
+        this.keyboardNavigationController._isNeedFocus = false;
         const isPreventDefaultCalled = this.triggerKeyDown('tab', false, false, $lastCell).preventDefault;
         this.clock.tick();
 
@@ -2534,7 +2536,7 @@ QUnit.module('Keyboard keys', {
         ];
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         // act
@@ -2565,7 +2567,7 @@ QUnit.module('Keyboard keys', {
         ];
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'row' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'row' });
         this.gridView.render($('#container'));
 
         this.editRow(0);
@@ -2591,7 +2593,7 @@ QUnit.module('Keyboard keys', {
         ];
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'row' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'row' });
         this.gridView.render($('#container'));
 
         this.editRow(0);
@@ -2790,7 +2792,7 @@ QUnit.module('Keyboard keys', {
         ];
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         // act
@@ -2817,7 +2819,7 @@ QUnit.module('Keyboard keys', {
         ];
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'row' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'row' });
         this.gridView.render($('#container'));
 
         // act
@@ -2839,7 +2841,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
         this.keyboardNavigationController._focusedView = this.rowsView;
 
-        this.options.editing = { allowUpdating: false, mode: 'row' };
+        $.extend(this.options.editing, { allowUpdating: false, mode: 'row' });
         this.gridView.render($('#container'));
 
         this.editingController.editRow(0);
@@ -2862,24 +2864,25 @@ QUnit.module('Keyboard keys', {
 
     QUnit.testInActiveWindow('Edit next cell after tab key when first cell focused at \'editCell\' function call', function(assert) {
         setupModules(this);
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
         this.gridView.render($('#container'));
 
         // act
         this.editingController.editCell(0, 0);
         this.clock.tick();
         const isPreventDefaultCalled = this.triggerKeyDown('tab', false, false, $('#container').find('input'));
+        this.clock.tick();
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), 0, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, 1, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 1, 'edit column index');
         assert.ok(isPreventDefaultCalled, 'preventDefault is called');
     });
 
     QUnit.testInActiveWindow('Focus next cell after tab key when first cell focused at \'editCell\' function call and editing is false', function(assert) {
         // arrange
         setupModules(this);
-        this.options.editing = { allowUpdating: false, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: false, mode: 'batch' });
         this.gridView.render($('#container'));
 
         // act
@@ -2891,7 +2894,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), -1, 'we are do not editing anything');
-        assert.equal(this.editingController._editColumnIndex, -1, 'we are do not editing anything');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), -1, 'we are do not editing anything');
         assert.equal(this.keyboardNavigationController._getFocusedCell().text(), 'test2', 'at now we are focused at second cell');
     });
 
@@ -2899,7 +2902,7 @@ QUnit.module('Keyboard keys', {
     QUnit.testInActiveWindow('Focus next editor after tab key for inserted row when editing mode is cell and allowUpdating is false', function(assert) {
         // arrange
         setupModules(this);
-        this.options.editing = { allowUpdating: false, mode: 'cell' };
+        $.extend(this.options.editing, { allowUpdating: false, mode: 'cell' });
         this.dataControllerOptions.items[0].isNewRow = true;
         this.gridView.render($('#container'));
 
@@ -2912,7 +2915,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), 0, 'we are do not editing anything');
-        assert.equal(this.editingController._editColumnIndex, 1, 'we are do not editing anything');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 1, 'we are do not editing anything');
         assert.equal(this.keyboardNavigationController._getFocusedCell().find('input').length, 1, 'focused cell contains editor');
     });
 
@@ -2926,7 +2929,7 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
 
         const $container = $('#container');
         this.gridView.render($container);
@@ -2955,7 +2958,7 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
 
         const $container = $('#container');
         this.gridView.render($container);
@@ -2983,7 +2986,7 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
 
         const $container = $('#container');
         this.gridView.render($container);
@@ -3015,7 +3018,7 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         this.options.selectionOptions = { mode: 'multiple' };
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
 
         const $container = $('#container');
         this.gridView.render($container);
@@ -3045,7 +3048,7 @@ QUnit.module('Keyboard keys', {
             rowIndex: 9,
             columnIndex: 1
         };
-        this.options.editing = { allowUpdating: true, mode: 'batch' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'batch' });
 
         const $container = $('#container');
         this.gridView.render($container);
@@ -3063,7 +3066,7 @@ QUnit.module('Keyboard keys', {
         // arrange
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'cell' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'cell' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -3085,7 +3088,7 @@ QUnit.module('Keyboard keys', {
 
         // assert
         assert.equal(this.editingController._getVisibleEditRowIndex(), 1, 'edit row index');
-        assert.equal(this.editingController._editColumnIndex, 2, 'edit column index');
+        assert.equal(this.editingController._getVisibleEditColumnIndex(), 2, 'edit column index');
         assert.ok(isPreventDefaultCalled, 'preventDefault is called');
         assert.ok(isFocusedInput, 'is focused input');
     });
@@ -3094,7 +3097,7 @@ QUnit.module('Keyboard keys', {
         // arrange
         setupModules(this);
 
-        this.options.editing = { allowUpdating: true, mode: 'row' };
+        $.extend(this.options.editing, { allowUpdating: true, mode: 'row' });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -3449,7 +3452,7 @@ QUnit.module('Keyboard keys', {
         // arrange, act
         setupModules(this);
 
-        this.options.editing = { mode: 'batch' };
+        $.extend(this.options.editing, { mode: 'batch' });
         this.options.selection = { mode: 'multiple', allowSelectAll: true };
         this.gridView.render($('#container'));
 
@@ -3467,7 +3470,7 @@ QUnit.module('Keyboard keys', {
     QUnit.testInActiveWindow('key A_T103450 ', function(assert) {
         // arrange, act
         setupModules(this);
-        this.options.editing = { mode: 'batch', allowUpdating: true };
+        $.extend(this.options.editing, { mode: 'batch', allowUpdating: true });
         this.options.selection = { mode: 'multiple' };
         this.gridView.render($('#container'));
 
@@ -3488,7 +3491,7 @@ QUnit.module('Keyboard keys', {
         this.keyboardNavigationController._isNeedFocus = true;
 
         // act
-        this.keyboardNavigationController._focusedCellPosition = { columnIndex: 0, rowIndex: 7 };
+        this.keyboardNavigationController.setFocusedCellPosition(7, 0);
         this.editorFactoryController._$focusedElement = $('<div/>');
         callViewsRenderCompleted(this._views);
         this.clock.tick();
@@ -3723,6 +3726,7 @@ QUnit.module('Keyboard keys', {
 
         // act
         this.triggerKeyDown('tab', false, false, $('#container').find('input'));
+        this.clock.tick();
 
         // assert
         assert.ok($testElement.find('.dx-datagrid-rowsview').find('tbody > tr').eq(1).children().eq(1).hasClass('dx-editor-cell'), 'second cell of the second row is edited');
@@ -3733,12 +3737,12 @@ QUnit.module('Keyboard keys', {
         setupModules(this);
 
         // act
-        this.options.editing = {
+        $.extend(this.options.editing, {
             mode: 'row',
             allowUpdating: function(options) {
                 return options.row.rowIndex % 2 === 0;
             }
-        };
+        });
         this.gridView.render($('#container'));
 
         this.focusFirstCell();
@@ -3827,10 +3831,10 @@ QUnit.module('Keyboard keys', {
 
         setupModules(this);
         this.options.scrolling = { mode: 'virtual' };
-        this.options.editing = {
+        $.extend(this.options.editing, {
             allowUpdating: true,
             mode: 'cell'
-        };
+        });
 
         this.gridView.render($('#container'));
         this.rowsView.height(70);
@@ -3844,6 +3848,7 @@ QUnit.module('Keyboard keys', {
         // act
         const $cell = $(this.getCellElement(0, 0));
         this.triggerKeyDown('tab', false, false, $cell);
+        this.clock.tick();
         this.keyboardNavigationController._updateFocus = function() {
             // assert
             assert.ok(false, 'keyboardNavigation._updateFocus should not be called');

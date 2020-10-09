@@ -15,6 +15,8 @@ export class GanttView extends Widget {
         this._onPopupMenuShowing = this._createActionByOption('onPopupMenuShowing');
         this._expandAll = this._createActionByOption('onExpandAll');
         this._collapseAll = this._createActionByOption('onCollapseAll');
+        this._taskClick = this._createActionByOption('onTaskClick');
+        this._taskDblClick = this._createActionByOption('onTaskDblClick');
     }
     _initMarkup() {
         const GanttView = getGanttViewCore();
@@ -29,7 +31,8 @@ export class GanttView extends Widget {
             areHorizontalBordersEnabled: this.option('showRowLines'),
             areAlternateRowsEnabled: false,
             viewType: this._getViewTypeByScaleType(this.option('scaleType')),
-            cultureInfo: this._getCultureInfo()
+            cultureInfo: this._getCultureInfo(),
+            taskTooltipContentTemplate: this.option('taskTooltipContentTemplate')
         });
         this._selectTask(this.option('selectedRowKey'));
         this.updateBarItemsState();
@@ -168,6 +171,9 @@ export class GanttView extends Widget {
             case 'stripLines':
                 this._ganttViewCore.setStripLines({ stripLines: args.value });
                 break;
+            case 'taskTooltipContentTemplate':
+                this._ganttViewCore.setTaskTooltipContentTemplate(args.value);
+                break;
             default:
                 super._optionChanged(args);
         }
@@ -221,10 +227,8 @@ export class GanttView extends Widget {
     getModelChangesListener() {
         return this.option('modelChangesListener');
     }
-    showPopupMenu(position) {
-        this._onPopupMenuShowing({
-            position: position
-        });
+    showPopupMenu(info) {
+        this._onPopupMenuShowing(info);
     }
     getMainElement() {
         return this.option('mainElement').get(0);
@@ -238,5 +242,15 @@ export class GanttView extends Widget {
     }
     expandAll() {
         this._expandAll();
+    }
+    onTaskClick(key, event) {
+        this._taskClick({ key: key, event: event });
+        return true;
+    }
+    onTaskDblClick(key, event) {
+        return this._taskDblClick({ key: key, event: event });
+    }
+    onGanttViewContextMenu(event, key, type) {
+        return true;
     }
 }

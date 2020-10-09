@@ -4,7 +4,6 @@ import {
   DateTableLayoutBase,
 } from '../layout';
 import { Table } from '../../table';
-import { VirtualTable } from '../../virtual_table';
 import { DateTableBody } from '../table_body';
 
 jest.mock('../table_body', () => ({
@@ -12,27 +11,31 @@ jest.mock('../table_body', () => ({
 }));
 
 describe('DateTableLayoutBase', () => {
+  const viewDataBase = {
+    groupedData: [{
+      dateTable: [[{
+        startDate: new Date(2020, 6, 9, 0), endDate: new Date(2020, 6, 9, 0, 30), groups: { id: 1 }, text: '', index: 0,
+      }], [{
+        startDate: new Date(2020, 6, 9, 0, 30), endDate: new Date(2020, 6, 9, 1), groups: { id: 2 }, text: '', index: 0,
+      }]],
+    }],
+    cellCountInGroupRow: 1,
+  };
+
   describe('Render', () => {
-    const viewData = {
-      groupedData: [{
-        dateTable: [
-          [{ startDate: new Date(2020, 6, 9, 0), endDate: new Date(2020, 6, 9, 0, 30), groups: 1 }],
-          [{ startDate: new Date(2020, 6, 9, 0, 30), endDate: new Date(2020, 6, 9, 1), groups: 2 }],
-        ],
-      }],
-    };
     const cellTemplate = () => null;
 
     const render = (viewModel) => mount(LayoutView({
       ...viewModel,
       props: {
         cellTemplate,
-        viewData,
+        viewData: viewDataBase,
+        viewType: 'month',
         ...viewModel.props,
       },
     } as any) as any);
 
-    afterEach(() => jest.resetAllMocks());
+    afterEach(jest.resetAllMocks);
 
     it('should spread restAttributes', () => {
       const layout = render({ restAttributes: { 'custom-attribute': 'customAttribute' } });
@@ -41,48 +44,85 @@ describe('DateTableLayoutBase', () => {
         .toBe('customAttribute');
     });
 
-    it('should render table', () => {
-      const layout = render({});
+    it('should render its components and pass correct props to them', () => {
+      const dataCellTemplate = () => null;
+      const layout = render({
+        classes: 'some-class',
+        props: { dataCellTemplate },
+        isVirtual: 'isVirtual',
+        topVirtualRowHeight: 100,
+        bottomVirtualRowHeight: 200,
+      });
 
-      expect(layout.find(Table).exists())
+      expect(layout.hasClass('some-class'))
         .toBe(true);
 
-      const tableBody = layout.find(DateTableBody);
-      expect(tableBody.exists())
+      const table = layout.find(Table);
+      expect(table.exists())
         .toBe(true);
-      expect(tableBody.props())
+
+      expect(table.props())
         .toMatchObject({
-          viewData,
-          cellTemplate,
+          isVirtual: 'isVirtual',
+          topVirtualRowHeight: 100,
+          bottomVirtualRowHeight: 200,
         });
-    });
-
-    it('should render virtual table', () => {
-      const layout = render({ isVirtual: true });
-
-      expect(layout.find(VirtualTable).exists())
+      expect(table.hasClass('some-class'))
         .toBe(true);
 
       const tableBody = layout.find(DateTableBody);
       expect(tableBody.exists())
         .toBe(true);
+
       expect(tableBody.props())
         .toMatchObject({
-          viewData,
-          cellTemplate,
+          viewData: viewDataBase,
+          // cellTemplate,
+          dataCellTemplate,
+          viewType: 'month',
         });
     });
   });
 
   describe('Logic', () => {
     describe('Getters', () => {
-      describe('isVirtual', () => {
-        [true, false].forEach((isVirtual) => {
-          it(`should get correct virtual flag if isVirtual=${isVirtual}`, () => {
-            const layout = new DateTableLayoutBase({ viewData: { groupedData: [], isVirtual } });
+      it('classes', () => {
+        const layout = new DateTableLayoutBase({ className: 'some-class' });
 
-            expect(layout.isVirtual)
-              .toBe(isVirtual);
+        expect(layout.classes.split(' '))
+          .toEqual([
+            'dx-scheduler-date-table',
+            'some-class',
+          ]);
+      });
+
+      [true, false].forEach((isVirtual) => {
+        it(`should get correct isVirtial flag if isVirtual=${isVirtual}`, () => {
+          const layout = new DateTableLayoutBase({ viewData: { ...viewDataBase, isVirtual } });
+
+          expect(layout.isVirtual)
+            .toBe(isVirtual);
+        });
+      });
+
+      [100, undefined].forEach((topVirtualRowHeight) => {
+        [500, undefined].forEach((bottomVirtualRowHeight) => {
+          it(`topVirtualRowHeight=${topVirtualRowHeight}, bottomVirtualRowHeight=${bottomVirtualRowHeight}`, () => {
+            const layout = new DateTableLayoutBase({
+              viewData: {
+                ...viewDataBase,
+                topVirtualRowHeight,
+                bottomVirtualRowHeight,
+              },
+            });
+
+            let value = topVirtualRowHeight || 0;
+            expect(layout.topVirtualRowHeight)
+              .toEqual(value);
+
+            value = bottomVirtualRowHeight || 0;
+            expect(layout.bottomVirtualRowHeight)
+              .toEqual(value);
           });
         });
       });

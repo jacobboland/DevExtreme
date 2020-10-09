@@ -17,9 +17,7 @@ const CENTER = 'center';
 const INSIDE = 'inside';
 const OUTSIDE = 'outside';
 
-import themeModule from '../../themes';
-const registerTheme = themeModule.registerTheme;
-const registerThemeAlias = themeModule.registerThemeAlias;
+import { registerTheme } from '../../themes';
 
 registerTheme({
     name: 'generic.light',
@@ -1738,4 +1736,4 @@ registerTheme({
     }
 });
 
-registerThemeAlias('generic.light.compact', 'generic.light');
+registerTheme({ name: 'generic.light.compact' }, 'generic.light');

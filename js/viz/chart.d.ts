@@ -13,6 +13,10 @@ import {
 } from '../ui/widget/ui.widget';
 
 import {
+    template
+} from '../core/templates/template';
+
+import {
     BaseChart,
     BaseChartLegend,
     BaseChartOptions,
@@ -1549,6 +1553,17 @@ export interface dxChartCommonAxisSettingsConstantLineStyleLabel {
 }
 export interface dxChartCommonAxisSettingsLabel {
     /**
+     * @docid dxChartOptions.commonAxisSettings.label.template
+     * @type template|function
+     * @default undefined
+     * @type_function_param1 data:any
+     * @type_function_param2 element:SVGGElement
+     * @type_function_return string|SVGElement|jQuery
+     * @prevFileNamespace DevExpress.viz
+     * @public
+     */
+    template?: template | ((data: any, element: SVGGElement) => string | SVGElement | JQuery);
+    /**
      * @docid dxChartOptions.commonAxisSettings.label.alignment
      * @type Enums.HorizontalAlignment
      * @default undefined
@@ -2479,6 +2494,39 @@ export interface dxChartCommonAnnotationConfig extends BaseChartAnnotationConfig
      * @public
      */
     axis?: string;
+    /**	
+     * @docid dxChartCommonAnnotationConfig.customizeTooltip	
+     * @type function(annotation)	
+     * @type_function_param1 annotation:dxChartAnnotationConfig|any	
+     * @type_function_return object	
+     * @default undefined	
+     * @notUsedInTheme	
+     * @prevFileNamespace DevExpress.viz	
+     * @public	
+     */	
+    customizeTooltip?: ((annotation: dxChartAnnotationConfig | any) => any);
+    /**	
+     * @docid dxChartCommonAnnotationConfig.template	
+     * @type template|function	
+     * @default undefined	
+     * @type_function_param1 annotation:dxChartAnnotationConfig|any	
+     * @type_function_param2 element:SVGGElement	
+     * @type_function_return string|SVGElement|jQuery	
+     * @prevFileNamespace DevExpress.viz	
+     * @public	
+     */	
+    template?: template | ((annotation: dxChartAnnotationConfig | any, element: SVGGElement) => string | SVGElement | JQuery);
+    /**	
+     * @docid dxChartCommonAnnotationConfig.tooltipTemplate	
+     * @type template|function(annotation, element)	
+     * @type_function_param1 annotation:dxChartAnnotationConfig|any	
+     * @type_function_param2 element:dxElement	
+     * @type_function_return string|Element|jQuery	
+     * @default undefined	
+     * @prevFileNamespace DevExpress.viz	
+     * @public	
+     */	
+    tooltipTemplate?: template | ((annotation: dxChartAnnotationConfig | any, element: dxElement) => string | Element | JQuery);
 }
 
 export interface dxChartSeriesTypes {

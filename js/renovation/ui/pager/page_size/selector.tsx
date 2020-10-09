@@ -1,19 +1,20 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import {
-  ComponentBindings, JSXComponent, Event, TwoWay, OneWay, Component, Method, Ref,
+  ComponentBindings, JSXComponent, OneWay, Component, Method, Ref,
 } from 'devextreme-generator/component_declaration/common';
 
 import { GetHtmlElement, FullPageSize } from '../common/types.d';
 import { PageSizeSmall } from './small';
 import { PageSizeLarge } from './large';
-
-export const PAGER_PAGE_SIZES_CLASS = 'dx-page-sizes';
+import PagerProps from '../common/pager_props';
+import messageLocalization from '../../../../localization/message';
+import { PAGER_PAGE_SIZES_CLASS } from '../common/consts';
 
 export const viewFunction = ({
   htmlRef,
   normalizedPageSizes,
   props: {
-    isLargeDisplayMode, pageSize, pageSizeChange, rtlEnabled,
+    isLargeDisplayMode, pageSize, pageSizeChange,
   },
 }: PageSizeSelector) => (
   <div ref={htmlRef as never} className={PAGER_PAGE_SIZES_CLASS}>
@@ -27,7 +28,6 @@ export const viewFunction = ({
     {!isLargeDisplayMode && (
     <PageSizeSmall
       parentRef={htmlRef}
-      rtlEnabled={rtlEnabled}
       pageSizes={normalizedPageSizes}
       pageSize={pageSize}
       pageSizeChange={pageSizeChange}
@@ -36,23 +36,18 @@ export const viewFunction = ({
   </div>
 );
 
-type PageSize = number;// | FullPageSize;
-@ComponentBindings()
-export class PageSizeSelectorProps {
-  @OneWay() isLargeDisplayMode?: boolean = true;
-
-  @TwoWay() pageSize?: number = 5;
-
-  @OneWay() pageSizes?: PageSize[] = [5, 10];
-
-  @OneWay() rtlEnabled?: boolean = false;
-
-  @Event() pageSizeChange?: (pageSize: number) => void;
+function getAllText(): string {
+  return messageLocalization.getFormatter('dxPager-pageSizesAllText')();
 }
-
+/* istanbul ignore next: class has only props default */
+@ComponentBindings()
+class PageSizeSelectorProps {
+  @OneWay() isLargeDisplayMode = true;
+}
+type PageSizeSelectorPropsType = Pick<PagerProps, 'pageSize'| 'pageSizeChange' | 'pageSizes' > & PageSizeSelectorProps;
 @Component({ defaultOptionRules: null, view: viewFunction })
 export class PageSizeSelector
-  extends JSXComponent(PageSizeSelectorProps)
+  extends JSXComponent<PageSizeSelectorPropsType>()
   implements GetHtmlElement {
   @Ref() htmlRef!: HTMLDivElement;
 
@@ -61,7 +56,7 @@ export class PageSizeSelector
   }
 
   get normalizedPageSizes(): FullPageSize[] {
-    const { pageSizes } = this.props as Required<PageSizeSelectorProps>;
-    return pageSizes.map((p) => ({ text: String(p), value: p } as FullPageSize));
+    const { pageSizes } = this.props;
+    return pageSizes.map((p) => (((p === 'all' || p === 0) ? { text: getAllText(), value: 0 } : { text: String(p), value: p }) as FullPageSize));
   }
 }

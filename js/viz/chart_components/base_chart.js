@@ -4,14 +4,14 @@ import { isDefined as _isDefined, isFunction } from '../../core/utils/type';
 import { each as _each, reverseEach as _reverseEach } from '../../core/utils/iterator';
 import { extend } from '../../core/utils/extend';
 import { inArray } from '../../core/utils/array';
-import { isTouchEvent, isPointerEvent } from '../../events/utils';
+import { isTouchEvent, isPointerEvent } from '../../events/utils/index';
 import BaseWidget from '../core/base_widget';
-import legendModule from '../components/legend';
-import dataValidatorModule from '../components/data_validator';
-import seriesModule from '../series/base_series';
-import chartThemeManagerModule from '../components/chart_theme_manager';
-import LayoutManagerModule from './layout_manager';
-import trackerModule from './tracker';
+import { Legend } from '../components/legend';
+import { validateData } from '../components/data_validator';
+import { Series } from '../series/base_series';
+import { ThemeManager } from '../components/chart_theme_manager';
+import { LayoutManager } from './layout_manager';
+import * as trackerModule from './tracker';
 import { map as _map, setCanvasValues as _setCanvasValues, processSeriesTemplate } from '../core/utils';
 const _isArray = Array.isArray;
 
@@ -338,7 +338,7 @@ export const BaseChart = BaseWidget.inherit({
 
     _createThemeManager: function() {
         const chartOption = this.option();
-        const themeManager = new chartThemeManagerModule.ThemeManager(this._getThemeManagerOptions());
+        const themeManager = new ThemeManager(this._getThemeManagerOptions());
 
         themeManager.setTheme(chartOption.theme, chartOption.rtlEnabled);
         return themeManager;
@@ -352,7 +352,7 @@ export const BaseChart = BaseWidget.inherit({
         that._createLegend();
         that._createTracker();
         that._needHandleRenderComplete = true;
-        that.layoutManager = new LayoutManagerModule.LayoutManager();
+        that.layoutManager = new LayoutManager();
         that._createScrollBar();
 
         eventsEngine.on(that._$element, 'contextmenu', function(event) {
@@ -703,6 +703,7 @@ export const BaseChart = BaseWidget.inherit({
         that._renderSeries(drawOptions, isRotated, isLegendInside);
 
         that._renderer.unlock();
+        that._resolveDeferredItems();
     },
 
     _updateLegendPosition: noop,
@@ -776,9 +777,8 @@ export const BaseChart = BaseWidget.inherit({
         that._renderTrackers(isLegendInside);
         that._tracker.repairTooltip();
 
-        that._clearCanvas();
-
         that._renderExtraElements();
+        that._clearCanvas();
 
         that._drawn();
         that._renderCompleteHandler();
@@ -854,6 +854,7 @@ export const BaseChart = BaseWidget.inherit({
 
     _cleanGroups: function() {
         const that = this;
+
         that._stripsGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
         that._gridGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
         that._axesGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
@@ -873,7 +874,7 @@ export const BaseChart = BaseWidget.inherit({
         const that = this;
         const legendSettings = getLegendSettings(that._legendDataField);
 
-        that._legend = new legendModule.Legend({
+        that._legend = new Legend({
             renderer: that._renderer,
             widget: that,
             group: that._legendGroup,
@@ -1208,7 +1209,7 @@ export const BaseChart = BaseWidget.inherit({
         }
 
         that._groupSeries();
-        const parsedData = dataValidatorModule.validateData(data, that._groupsData, that._incidentOccurred, dataValidatorOptions);
+        const parsedData = validateData(data, that._groupsData, that._incidentOccurred, dataValidatorOptions);
         themeManager.resetPalette();
 
         that.series.forEach(function(singleSeries) {
@@ -1332,7 +1333,7 @@ export const BaseChart = BaseWidget.inherit({
                 particularSeries = basis.series;
                 particularSeries.updateOptions(seriesTheme, renderSettings);
             } else {
-                particularSeries = new seriesModule.Series(extend({
+                particularSeries = new Series(extend({
                     renderer: that._renderer,
                     seriesGroup: that._seriesGroup,
                     labelsGroup: that._labelsGroup,
@@ -1355,7 +1356,7 @@ export const BaseChart = BaseWidget.inherit({
     getStackedPoints: function(point) {
         const stackName = point.series.getStackName();
         return this._getVisibleSeries().reduce((stackPoints, series) => {
-            if((!_isDefined(series.getStackName()) && !_isDefined(stackName)) || stackName === series.getStackName()) {
+            if((!_isDefined(series.getStackName()) || !_isDefined(stackName)) || stackName === series.getStackName()) {
                 stackPoints = stackPoints.concat(series.getPointsByArg(point.argument));
             }
             return stackPoints;
@@ -1432,7 +1433,9 @@ export const BaseChart = BaseWidget.inherit({
 
     _stopCurrentHandling: function() {
         this._tracker.stopCurrentHandling();
-    }
+    },
+
+    _resolveDeferredItems() {}
 });
 
 REFRESH_SERIES_DATA_INIT_ACTION_OPTIONS.forEach(function(name) {

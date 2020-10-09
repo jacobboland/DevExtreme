@@ -2,10 +2,10 @@ import $ from '../core/renderer';
 import eventsEngine from '../events/core/events_engine';
 import devices from '../core/devices';
 import { extend } from '../core/utils/extend';
-import inkRipple from './widget/utils.ink_ripple';
+import { render } from './widget/utils.ink_ripple';
 import registerComponent from '../core/component_registrator';
 import Editor from './editor/editor';
-import { addNamespace } from '../events/utils';
+import { addNamespace } from '../events/utils/index';
 import { lock } from '../events/core/emitter.feedback';
 import { getBoundingRect } from '../core/utils/position';
 import fx from '../animation/fx';
@@ -54,9 +54,9 @@ const Switch = Editor.inherit({
 
             activeStateEnabled: true,
 
-            switchedOnText: this._getLocalizationMessage('On'),
+            switchedOnText: messageLocalization.format('dxSwitch-switchedOnText'),
 
-            switchedOffText: this._getLocalizationMessage('Off'),
+            switchedOffText: messageLocalization.format('dxSwitch-switchedOffText'),
 
             value: false,
 
@@ -75,24 +75,6 @@ const Switch = Editor.inherit({
                 }
             }
         ]);
-    },
-
-    _setDeprecatedOptions: function() {
-        this.callBase();
-
-        extend(this._deprecatedOptions, {
-            onText: { since: '18.2', alias: 'switchedOnText' },
-
-            offText: { since: '18.2', alias: 'switchedOffText' }
-        });
-    },
-
-    _getLocalizationMessage: function(state) {
-        // todo: remove this method when deprecated dxSwitchOptions.switchedOnText/switchedOffText will be removed
-        const newMessage = messageLocalization.format('dxSwitch-switched' + state + 'Text');
-        const oldMessage = messageLocalization.format('dxSwitch-' + state.toLowerCase() + 'Text');
-
-        return newMessage || oldMessage;
     },
 
     _feedbackHideTimeout: 0,
@@ -196,7 +178,7 @@ const Switch = Editor.inherit({
     },
 
     _renderInkRipple: function() {
-        this._inkRipple = inkRipple.render({
+        this._inkRipple = render({
             waveSizeCoefficient: 1.7,
             isCentered: true,
             useHoldAnimation: false,

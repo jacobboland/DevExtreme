@@ -1,26 +1,32 @@
 // A lot of refs needed any
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
-  Component, ComponentBindings, JSXComponent, OneWay, ForwardRef,
+  Component, ComponentBindings, JSXComponent, OneWay, ForwardRef, Provider, Ref, Effect,
 } from 'devextreme-generator/component_declaration/common';
 
 import { InfoText } from './info';
 import { PageIndexSelector } from './pages/page_index_selector';
 import { PageSizeSelector } from './page_size/selector';
 import { PAGER_PAGES_CLASS, LIGHT_MODE_CLASS, PAGER_CLASS } from './common/consts';
-import PagerProps from './common/pager_props';
+import PagerProps, { DisplayMode } from './common/pager_props';
 import { combineClasses } from '../../utils/combine_classes';
+import { Widget } from '../common/widget';
+import { DisposeEffectReturn } from '../../utils/effect_return.d';
+import { registerKeyboardAction } from '../../../ui/shared/accessibility';
+import { EventCallback } from '../common/event_callback.d';
+import { KeyboardActionContext, KeyboardActionContextType } from './common/keyboard_action_context';
+import noop from '../../utils/noop';
 
-const STATE_INVISIBLE_CLASS = 'dx-state-invisible';
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const viewFunction = ({
-  className,
+  widgetRef,
+  classes,
   pagesContainerVisible,
   pagesContainerVisibility,
   isLargeDisplayMode,
   infoVisible,
   props: {
-    parentRef, pageSizesRef, pagesRef, infoTextRef,
+    pageSizesRef, pagesRef, infoTextRef,
     pageSizeChange, pageIndexChange,
     infoText, maxPagesCount, pageIndex, hasKnownLastPage,
     pageCount, showPageSizes, pageSize, pageSizes,
@@ -28,9 +34,9 @@ export const viewFunction = ({
     showNavigationButtons, totalCount,
   },
   restAttributes,
-}: PagerContentComponent) => (
+}: PagerContent) => (
   // eslint-disable-next-line react/jsx-props-no-spreading
-  <div ref={parentRef} className={className} {...restAttributes}>
+  <Widget ref={widgetRef as any} rtlEnabled={rtlEnabled} classes={classes} {...restAttributes}>
     {showPageSizes && (
     <PageSizeSelector
       ref={pageSizesRef}
@@ -38,7 +44,6 @@ export const viewFunction = ({
       pageSize={pageSize}
       pageSizeChange={pageSizeChange}
       pageSizes={pageSizes}
-      rtlEnabled={rtlEnabled}
     />
     )}
     {pagesContainerVisible && (
@@ -64,30 +69,24 @@ export const viewFunction = ({
           pageIndex={pageIndex}
           pageIndexChange={pageIndexChange}
           pagesCountText={pagesCountText}
-          rtlEnabled={rtlEnabled}
           showNavigationButtons={showNavigationButtons}
           totalCount={totalCount}
         />
       </div>
     )}
-  </div>
+  </Widget>
 );
 
-/* Vitik bug in generator try to use in resizable-container
-export type TwoWayProps = {
-  pageIndexChange?: (pageIndex: number) => void;
-  pageSizeChange?: (pageSize: number) => void;
-}; */
-
+/* istanbul ignore next: class has only props default */
 @ComponentBindings()
-export class PagerContentProps extends PagerProps /* bug in generator  implements TwoWayProps */ {
+export class PagerContentProps extends PagerProps {
   @OneWay() infoTextVisible = true;
 
   @OneWay() isLargeDisplayMode = true;
 
   @ForwardRef() pageSizesRef: any = null;
 
-  @ForwardRef() parentRef: any = null;
+  @ForwardRef() rootElementRef: any = null;
 
   @ForwardRef() pagesRef: any = null;
 
@@ -95,10 +94,43 @@ export class PagerContentProps extends PagerProps /* bug in generator  implement
 }
 
 @Component({ defaultOptionRules: null, view: viewFunction })
-export class PagerContentComponent extends JSXComponent(PagerContentProps) {
+export class PagerContent extends JSXComponent<PagerContentProps>() {
+  @Ref() widgetRef!: any;
+
+  @Provider(KeyboardActionContext)
+  get keyboardAction(): KeyboardActionContextType {
+    return {
+      registerKeyboardAction:
+        (element: HTMLElement, action: EventCallback): DisposeEffectReturn => {
+          const fakePagerInstance = {
+            option: (): boolean => false,
+            element: (): HTMLElement | null => this.widgetRef.getHtmlElement(),
+            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+            _createActionByOption: () => noop,
+          };
+          return registerKeyboardAction('pager', fakePagerInstance, element, undefined, action);
+        },
+    };
+  }
+
+  @Effect({ run: 'once' }) setRootElementRef(): void {
+    const { rootElementRef } = this.props;
+    if (rootElementRef) {
+      this.props.rootElementRef = this.widgetRef;
+    }
+  }
+
   get infoVisible(): boolean {
-    const { showInfo, infoTextVisible } = this.props as Required<PagerContentProps>;
-    return showInfo && infoTextVisible;
+    const { showInfo, infoTextVisible } = this.props;
+    return showInfo && infoTextVisible && this.isLargeDisplayMode;
+  }
+
+  private get normalizedDisplayMode(): DisplayMode {
+    const { lightModeEnabled, displayMode } = this.props;
+    if (displayMode === 'adaptive' && lightModeEnabled !== undefined) {
+      return lightModeEnabled ? 'compact' : 'full';
+    }
+    return displayMode;
   }
 
   get pagesContainerVisible(): boolean {
@@ -113,16 +145,20 @@ export class PagerContentComponent extends JSXComponent(PagerContentProps) {
   }
 
   get isLargeDisplayMode(): boolean {
-    return !this.props.lightModeEnabled && this.props.isLargeDisplayMode;
+    const displayMode = this.normalizedDisplayMode;
+    let result = false;
+    if (displayMode === 'adaptive') {
+      result = this.props.isLargeDisplayMode;
+    } else {
+      result = displayMode === 'full';
+    }
+    return result;
   }
 
-  get className(): string {
-    const userClasses = this.props.className!;
+  get classes(): string {
     const classesMap = {
-      'dx-widget': true,
-      [userClasses]: !!userClasses,
+      [`${this.props.className}`]: !!this.props.className,
       [PAGER_CLASS]: true,
-      [STATE_INVISIBLE_CLASS]: !this.props.visible,
       [LIGHT_MODE_CLASS]: !this.isLargeDisplayMode,
     };
     return combineClasses(classesMap);

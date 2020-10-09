@@ -23,7 +23,7 @@ import ArrayStore from 'data/array_store';
 import TreeList from 'ui/tree_list/ui.tree_list';
 import pointerMock from '../../helpers/pointerMock.js';
 import { CLICK_EVENT } from '../../helpers/grid/keyboardNavigationHelper.js';
-import { createEvent } from 'events/utils';
+import { createEvent } from 'events/utils/index';
 
 fx.off = true;
 
@@ -230,6 +230,9 @@ QUnit.module('Initialization', defaultModuleConfig, () => {
             height: 50,
             paging: { pageSize: 2, pageIndex: 1 },
             columns: ['name', 'age'],
+            scrolling: {
+                useNative: false
+            },
             dataSource: [
                 { id: 1, parentId: 0, name: 'Name 1', age: 19 },
                 { id: 2, parentId: 0, name: 'Name 2', age: 19 },

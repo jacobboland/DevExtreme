@@ -3,7 +3,7 @@ import eventsEngine from '../../events/core/events_engine';
 import { isDefined } from '../../core/utils/type';
 import { extend } from '../../core/utils/extend';
 import { each } from '../../core/utils/iterator';
-import { addNamespace } from '../../events/utils';
+import { addNamespace } from '../../events/utils/index';
 import registerComponent from '../../core/component_registrator';
 import DOMComponent from '../../core/dom_component';
 import {
@@ -14,7 +14,8 @@ import {
     leave as dragEventLeave,
     drop as dragEventDrop
 } from '../../events/drag';
-import { getSwatchContainer } from '../widget/swatch_container';
+import swatchContainer from '../widget/swatch_container';
+const { getSwatchContainer } = swatchContainer;
 
 const SORTABLE_NAMESPACE = 'dxSortable';
 const SORTABLE_CLASS = 'dx-sortable-old';

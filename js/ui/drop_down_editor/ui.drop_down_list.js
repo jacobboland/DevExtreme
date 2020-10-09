@@ -11,7 +11,7 @@ import { inArray } from '../../core/utils/array';
 import DropDownEditor from './ui.drop_down_editor';
 import List from '../list';
 import errors from '../widget/ui.errors';
-import { addNamespace } from '../../events/utils';
+import { addNamespace } from '../../events/utils/index';
 import devices from '../../core/devices';
 import dataQuery from '../../data/query';
 import { each } from '../../core/utils/iterator';
@@ -121,8 +121,6 @@ const DropDownList = DropDownEditor.inherit({
             * @name dxDropDownListOptions.applyValueMode
             * @hidden
             */
-
-            popupWidthExtension: 0
         }));
     },
 
@@ -502,12 +500,10 @@ const DropDownList = DropDownEditor.inherit({
     _renderOpenedState: function() {
         this.callBase();
 
-        const opened = this.option('opened') || undefined;
-
         this._list && this._updateActiveDescendant();
         this.setAria({
-            'controls': opened && this._listId,
-            'owns': opened && this._popupContentId
+            'controls': this._list && this._listId,
+            'owns': this._popup && this._popupContentId
         });
     },
 
@@ -526,8 +522,8 @@ const DropDownList = DropDownEditor.inherit({
 
     _shouldRefreshDataSource: function() {
         const dataSourceProvided = !!this._list.option('dataSource');
-        const someItemsSelected = this.option('selectedItems')?.length > 0;
-        return dataSourceProvided !== this._needPassDataSourceToList() && !someItemsSelected;
+
+        return dataSourceProvided !== this._needPassDataSourceToList();
     },
 
     _isDesktopDevice: function() {
@@ -922,7 +918,6 @@ const DropDownList = DropDownEditor.inherit({
                 break;
             case 'itemTemplate':
             case 'searchTimeout':
-            case 'popupWidthExtension':
                 break;
             case 'selectedItem':
                 if(args.previousValue !== args.value) {

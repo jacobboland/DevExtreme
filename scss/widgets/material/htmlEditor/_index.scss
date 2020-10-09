@@ -6,7 +6,8 @@
 @use "../button/sizes" as *;
 @use "../textEditor/colors" as *;
 @use "../toolbar/sizes" as *;
-@use "../common" as *;
+@use "../common/mixins" as *;
+@use "../../base/htmlEditor";
 
 // adduse
 
@@ -49,6 +50,10 @@
     & > span {
       background: $htmleditor-variable-bg;
     }
+  }
+
+  td {
+    border-color: $htmleditor-table-border-color;
   }
 }
 

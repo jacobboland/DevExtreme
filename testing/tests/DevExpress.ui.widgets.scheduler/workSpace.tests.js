@@ -22,9 +22,12 @@ import { extend } from 'core/utils/extend';
 const CELL_CLASS = 'dx-scheduler-date-table-cell';
 const DROPPABLE_CELL_CLASS = 'dx-scheduler-date-table-droppable-cell';
 const ALL_DAY_TABLE_CELL_CLASS = 'dx-scheduler-all-day-table-cell';
+const HOVER_CLASS = 'dx-state-hover';
 const WORKSPACE_DAY = { class: 'dxSchedulerWorkSpaceDay', name: 'SchedulerWorkSpaceDay' };
 const WORKSPACE_WEEK = { class: 'dxSchedulerWorkSpaceWeek', name: 'SchedulerWorkSpaceWeek' };
 const WORKSPACE_MONTH = { class: 'dxSchedulerWorkSpaceMonth', name: 'SchedulerWorkSpaceMonth' };
+
+QUnit.dump.maxDepth = 10;
 
 const stubInvokeMethod = function(instance, options) {
     options = options || {};
@@ -860,7 +863,7 @@ QUnit.testStart(function() {
 
         const cellData = {
             allDay: true,
-            endDate: new Date(2015, 5, 30, 0),
+            endDate: new Date(2015, 5, 29, 0),
             startDate: new Date(2015, 5, 29, 0)
         };
 
@@ -1723,7 +1726,7 @@ QUnit.module('Workspace Keyboard Navigation', () => {
         assert.equal(cells.slice(4, 11).filter('.dx-state-focused').length, 6, 'right cells are focused');
     });
 
-    QUnit.test('Workspace should allow select/unselect cells with shift & right/left arrow', function(assert) {
+    QUnit.test('Workspace should allow select/unselect cells with shift & left/right arrow', function(assert) {
         const $element = $('#scheduler-work-space').dxSchedulerWorkSpaceMonth({
             focusStateEnabled: true,
             firstDayOfWeek: 1,
@@ -2965,6 +2968,29 @@ QUnit.module('Workspace Mouse Interaction', () => {
         assert.notOk(cells.eq(28).hasClass('dx-state-focused'), 'a cell in the next group is not focused');
     });
 
+    [WORKSPACE_DAY, WORKSPACE_WEEK, WORKSPACE_MONTH].forEach((workSpace) => {
+        QUnit.test(`Cell hover should work correctly in ${workSpace.name}`, function(assert) {
+            const $element = $('#scheduler-work-space')[workSpace.class]({});
+
+            const cells = $element.find(`.${CELL_CLASS}`);
+
+            $element.trigger($.Event('dxpointerenter', { target: cells.eq(2).get(0), which: 1 }));
+
+            assert.ok(cells.eq(2).hasClass(HOVER_CLASS), 'onHover event works');
+        });
+    });
+
+    [WORKSPACE_DAY, WORKSPACE_WEEK].forEach((workSpace) => {
+        QUnit.test(`Cell hover should work correctly in ${workSpace.name} in all-day panel cells`, function(assert) {
+            const $element = $('#scheduler-work-space')[workSpace.class]({});
+
+            const cells = $element.find(`.${ALL_DAY_TABLE_CELL_CLASS}`);
+
+            $element.trigger($.Event('dxpointerenter', { target: cells.eq(0).get(0), which: 1 }));
+
+            assert.ok(cells.eq(0).hasClass(HOVER_CLASS), 'onHover event works in all-day panel cells');
+        });
+    });
 });
 
 
@@ -3710,9 +3736,13 @@ QUnit.module('Workspace Mouse Interaction', () => {
 })('Work Space Work Week with intervalCount');
 
 QUnit.module('Renovated Render', {
+    before() {
+        this.qUnitMaxDepth = QUnit.dump.maxDepth;
+        QUnit.dump.maxDepth = 10;
+    },
     beforeEach() {
-        this.createInstance = (options = {}) => {
-            this.instance = $('#scheduler-work-space').dxSchedulerWorkSpaceDay(extend({
+        this.createInstance = (options = {}, workSpace = 'dxSchedulerWorkSpaceDay') => {
+            this.instance = $('#scheduler-work-space')[workSpace](extend({
                 renovateRender: true,
                 currentDate: new Date(2020, 6, 29),
                 startDayHour: 0,
@@ -3723,234 +3753,514 @@ QUnit.module('Renovated Render', {
                     scrollable.option('scrollByContent', false);
                     e.component._attachTablesEvents();
                 }
-            }, options)).dxSchedulerWorkSpaceDay('instance');
+            }, options))[workSpace]('instance');
             stubInvokeMethod(this.instance);
         };
     },
+    after() {
+        QUnit.dump.maxDepth = this.qUnitMaxDepth;
+    }
 }, () => {
     QUnit.module('Generate View Data', () => {
-        QUnit.test('should work in basic case', function(assert) {
-            this.createInstance();
-            const result = this.instance._generateViewData();
-            const expected = {
-                groupedData: [{
-                    allDayPanel: [{
-                        startDate: new Date(2020, 6, 29),
-                        endDate: new Date(2020, 6, 30),
-                        allDay: true,
+        QUnit.module('Standard Scrolling', () => {
+            QUnit.test('should work in basic case', function(assert) {
+                this.createInstance();
+
+                this.instance.viewDataProvider.update();
+
+                const { viewData, viewDataMap } = this.instance.viewDataProvider;
+
+                const expectedViewData = {
+                    groupedData: [{
+                        allDayPanel: [{
+                            startDate: new Date(2020, 6, 29),
+                            endDate: new Date(2020, 6, 29),
+                            groupIndex: 0,
+                            index: 0,
+                            allDay: true,
+                            key: 0,
+                        }],
+                        dateTable: [[{
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            groupIndex: 0,
+                            index: 0,
+                            text: '12:00 AM',
+                            key: 0,
+                        }], [{
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            groupIndex: 0,
+                            index: 1,
+                            allDay: false,
+                            text: '',
+                            key: 1,
+                        }]],
+                        groupIndex: 0,
+                        isGroupedAllDayPanel: false
                     }],
-                    dateTable: [[{
-                        startDate: new Date(2020, 6, 29, 0, 0),
-                        endDate: new Date(2020, 6, 29, 0, 30),
-                        allDay: false,
-                        text: '12:00 AM',
+                    cellCountInGroupRow: 1,
+                    bottomVirtualRowHeight: undefined,
+                    isVirtual: false,
+                    topVirtualRowHeight: undefined,
+                };
+                const expectedViewDataMap = [
+                    [{
+                        cellData: {
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            groupIndex: 0,
+                            index: 0,
+                            text: '12:00 AM',
+                            key: 0,
+                        },
+                        position: { cellIndex: 0, rowIndex: 0 }
                     }], [{
-                        startDate: new Date(2020, 6, 29, 0, 30),
-                        endDate: new Date(2020, 6, 29, 1, 0),
-                        allDay: false,
-                        text: '',
-                    }]]
-                }],
-            };
+                        cellData: {
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            groupIndex: 0,
+                            index: 1,
+                            text: '',
+                            key: 1,
+                        },
+                        position: { cellIndex: 0, rowIndex: 1 }
+                    }]
+                ];
 
-            assert.deepEqual(result.groupedData, expected.groupedData, 'correct view data');
-            assert.notOk(result.isVirtual, 'View Data is not virtual');
-        });
-
-        QUnit.test('should work with horizontal grouping', function(assert) {
-            this.createInstance({
-                groupOrientation: 'horizontal',
+                assert.deepEqual(viewData, expectedViewData, 'correct view data');
+                assert.deepEqual(viewDataMap, expectedViewDataMap, 'correct view data map');
             });
-            this.instance.option('groups', [
-                {
-                    name: 'res',
-                    items: [
-                        { id: 1, text: 'one' }, { id: 2, text: 'two' }
-                    ]
-                }
-            ]);
 
-            const result = this.instance._generateViewData();
-            const expected = {
-                groupedData: [{
-                    dateTable: [[{
+            QUnit.test('should work with horizontal grouping', function(assert) {
+                this.createInstance({
+                    groupOrientation: 'horizontal',
+                });
+                this.instance.option('groups', [
+                    {
+                        name: 'res',
+                        items: [
+                            { id: 1, text: 'one' }, { id: 2, text: 'two' }
+                        ]
+                    }
+                ]);
+
+                this.instance.viewDataProvider.update();
+
+                const { viewData, viewDataMap } = this.instance.viewDataProvider;
+
+                const expectedViewData = {
+                    cellCountInGroupRow: 1,
+                    groupedData: [{
+                        allDayPanel: [
+                            {
+                                allDay: true,
+                                startDate: new Date(2020, 6, 29),
+                                endDate: new Date(2020, 6, 29),
+                                groups: { res: 1 },
+                                groupIndex: 0,
+                                index: 0,
+                                key: 0,
+                            },
+                            {
+                                allDay: true,
+                                startDate: new Date(2020, 6, 29),
+                                endDate: new Date(2020, 6, 29),
+                                groups: { res: 2 },
+                                groupIndex: 1,
+                                index: 0,
+                                key: 1,
+                            }
+                        ],
+                        dateTable: [[{
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            text: '12:00 AM',
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 0,
+                            key: 0,
+                        }, {
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 0,
+                            key: 1,
+                        }], [{
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 1,
+                            key: 2,
+                        }, {
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 1,
+                            key: 3,
+                        }]],
+                        groupIndex: 0,
+                        isGroupedAllDayPanel: false,
+                    }],
+                    bottomVirtualRowHeight: undefined,
+                    isVirtual: false,
+                    topVirtualRowHeight: undefined,
+                };
+
+                const expectedViewDataMap = [[{
+                    cellData: {
                         startDate: new Date(2020, 6, 29, 0, 0),
                         endDate: new Date(2020, 6, 29, 0, 30),
                         allDay: false,
                         text: '12:00 AM',
                         groups: { res: 1 },
-                    }, {
-                        startDate: new Date(2020, 6, 29, 0, 0),
-                        endDate: new Date(2020, 6, 29, 0, 30),
-                        allDay: false,
-                        text: '12:00 AM',
-                        groups: { res: 2 },
-                    }], [{
-                        startDate: new Date(2020, 6, 29, 0, 30),
-                        endDate: new Date(2020, 6, 29, 1, 0),
-                        allDay: false,
-                        text: '',
-                        groups: { res: 1 },
-                    }, {
-                        startDate: new Date(2020, 6, 29, 0, 30),
-                        endDate: new Date(2020, 6, 29, 1, 0),
-                        allDay: false,
-                        text: '',
-                        groups: { res: 2 },
-                    }]]
-                }],
-            };
-
-            assert.equal(result.groupedData.length, 1, 'correct number of tables');
-            assert.equal(result.groupedData[0].dateTable.length, 2, 'correct number of rows');
-            assert.equal(result.groupedData[0].dateTable[0].length, 2, 'correct number of columns');
-            assert.deepEqual(result.groupedData[0].dateTable[0][0], expected.groupedData[0].dateTable[0][0], 'correct first cell');
-            assert.deepEqual(result.groupedData[0].dateTable[0][1], expected.groupedData[0].dateTable[0][1], 'correct second cell');
-            assert.deepEqual(result.groupedData[0].dateTable[1][0], expected.groupedData[0].dateTable[1][0], 'correct third cell');
-            assert.deepEqual(result.groupedData[0].dateTable[1][1], expected.groupedData[0].dateTable[1][1], 'correct fourth cell');
-            assert.notOk(result.isVirtual, 'View Data is not virtual');
-        });
-
-        QUnit.test('should work with vertical grouping', function(assert) {
-            this.createInstance();
-            this.instance.option('groups', [
-                {
-                    name: 'res',
-                    items: [
-                        { id: 1, text: 'one' }, { id: 2, text: 'two' }
-                    ]
-                }
-            ]);
-            this.instance.option('groupOrientation', 'vertical');
-
-            const result = this.instance._generateViewData();
-            const expected = {
-                groupedData: [{
-                    dateTable: [[{
-                        startDate: new Date(2020, 6, 29, 0, 0),
-                        endDate: new Date(2020, 6, 29, 0, 30),
-                        allDay: false,
-                        text: '12:00 AM',
-                        groups: { res: 1 },
-                    }], [{
-                        startDate: new Date(2020, 6, 29, 0, 30),
-                        endDate: new Date(2020, 6, 29, 1, 0),
-                        allDay: false,
-                        text: '',
-                        groups: { res: 1 },
-                    }]]
+                        groupIndex: 0,
+                        index: 0,
+                        key: 0,
+                    },
+                    position: { cellIndex: 0, rowIndex: 0 }
                 }, {
-                    dateTable: [[{
+                    cellData: {
                         startDate: new Date(2020, 6, 29, 0, 0),
                         endDate: new Date(2020, 6, 29, 0, 30),
                         allDay: false,
-                        text: '12:00 AM',
+                        text: '',
                         groups: { res: 2 },
-                    }], [{
+                        groupIndex: 1,
+                        index: 0,
+                        key: 1,
+                    },
+                    position: { cellIndex: 1, rowIndex: 0 }
+                }], [{
+                    cellData: {
+                        startDate: new Date(2020, 6, 29, 0, 30),
+                        endDate: new Date(2020, 6, 29, 1, 0),
+                        allDay: false,
+                        text: '',
+                        groups: { res: 1 },
+                        groupIndex: 0,
+                        index: 1,
+                        key: 2,
+                    },
+                    position: { cellIndex: 0, rowIndex: 1 }
+                }, {
+                    cellData: {
                         startDate: new Date(2020, 6, 29, 0, 30),
                         endDate: new Date(2020, 6, 29, 1, 0),
                         allDay: false,
                         text: '',
                         groups: { res: 2 },
-                    }]]
-                }],
-            };
+                        groupIndex: 1,
+                        index: 1,
+                        key: 3,
+                    },
+                    position: { cellIndex: 1, rowIndex: 1 }
+                }]];
 
-            assert.equal(result.groupedData.length, 2, 'correct number of tables');
-            assert.equal(result.groupedData[0].dateTable.length, 2, 'correct number of rows in the first table');
-            assert.equal(result.groupedData[0].dateTable[0].length, 1, 'correct number of columns in the first table');
-            assert.equal(result.groupedData[1].dateTable.length, 2, 'correct number of rows in the first table');
-            assert.equal(result.groupedData[1].dateTable[0].length, 1, 'correct number of columns in the first table');
-            assert.deepEqual(result.groupedData[0].dateTable[0][0], expected.groupedData[0].dateTable[0][0], 'correct first cell');
-            assert.deepEqual(result.groupedData[0].dateTable[1][0], expected.groupedData[0].dateTable[1][0], 'correct second cell');
-            assert.deepEqual(result.groupedData[1].dateTable[0][0], expected.groupedData[1].dateTable[0][0], 'correct third cell');
-            assert.deepEqual(result.groupedData[1].dateTable[1][0], expected.groupedData[1].dateTable[1][0], 'correct fourth cell');
-            assert.notOk(result.isVirtual, 'View Data is not virtual');
+                assert.deepEqual(viewData, expectedViewData, 'correct view data');
+                assert.deepEqual(viewDataMap, expectedViewDataMap, 'correct viewDataMap');
+            });
+
+            QUnit.test('should work with vertical grouping', function(assert) {
+                this.createInstance();
+                this.instance.option('groups', [
+                    {
+                        name: 'res',
+                        items: [
+                            { id: 1, text: 'one' }, { id: 2, text: 'two' }
+                        ]
+                    }
+                ]);
+                this.instance.option('groupOrientation', 'vertical');
+
+                this.instance.viewDataProvider.update();
+
+                const { viewData, viewDataMap } = this.instance.viewDataProvider;
+
+                const expectedViewData = {
+                    groupedData: [{
+                        allDayPanel: [{
+                            allDay: true,
+                            startDate: new Date(2020, 6, 29),
+                            endDate: new Date(2020, 6, 29),
+                            groups: {
+                                res: 1
+                            },
+                            groupIndex: 0,
+                            index: 0,
+                            key: 0,
+                        }],
+                        dateTable: [[{
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            text: '12:00 AM',
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 0,
+                            key: 0,
+                        }], [{
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 1,
+                            key: 1,
+                        }]]
+                    }, {
+                        allDayPanel: [{
+                            allDay: true,
+                            startDate: new Date(2020, 6, 29),
+                            endDate: new Date(2020, 6, 29),
+                            groups: {
+                                res: 2
+                            },
+                            groupIndex: 1,
+                            index: 0,
+                            key: 2,
+                        }],
+                        dateTable: [[{
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            text: '12:00 AM',
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 0,
+                            key: 2,
+                        }], [{
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 1,
+                            key: 3,
+                        }]]
+                    }],
+                };
+
+                const expectedViewDataMap = [
+                    [{
+                        cellData: {
+                            allDay: true,
+                            startDate: new Date(2020, 6, 29),
+                            endDate: new Date(2020, 6, 29),
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 0,
+                            key: 0,
+                        },
+                        position: { rowIndex: 0, cellIndex: 0 }
+                    }], [{
+                        cellData: {
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            text: '12:00 AM',
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 0,
+                            key: 0,
+                        },
+                        position: { rowIndex: 1, cellIndex: 0 }
+                    }], [{
+                        cellData: {
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 1 },
+                            groupIndex: 0,
+                            index: 1,
+                            key: 1,
+                        },
+                        position: { rowIndex: 2, cellIndex: 0 }
+                    }], [{
+                        cellData: {
+                            allDay: true,
+                            startDate: new Date(2020, 6, 29),
+                            endDate: new Date(2020, 6, 29),
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 0,
+                            key: 2,
+                        },
+                        position: { rowIndex: 3, cellIndex: 0 }
+                    }], [{
+                        cellData: {
+                            startDate: new Date(2020, 6, 29, 0, 0),
+                            endDate: new Date(2020, 6, 29, 0, 30),
+                            allDay: false,
+                            text: '12:00 AM',
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 0,
+                            key: 2,
+                        },
+                        position: { rowIndex: 4, cellIndex: 0 }
+                    }], [{
+                        cellData: {
+                            startDate: new Date(2020, 6, 29, 0, 30),
+                            endDate: new Date(2020, 6, 29, 1, 0),
+                            allDay: false,
+                            text: '',
+                            groups: { res: 2 },
+                            groupIndex: 1,
+                            index: 1,
+                            key: 3,
+                        },
+                        position: { rowIndex: 5, cellIndex: 0 }
+                    }]
+                ];
+
+                assert.deepEqual(viewData.groupedData[0].allDayPanel, expectedViewData.groupedData[0].allDayPanel, 'correct allDayPanel');
+                assert.deepEqual(viewData.groupedData[0].dateTable, expectedViewData.groupedData[0].dateTable, 'correct dateTable');
+                assert.deepEqual(viewData.groupedData[1].allDayPanel, expectedViewData.groupedData[1].allDayPanel, 'correct allDayPanel');
+                assert.deepEqual(viewData.groupedData[1].dateTable, expectedViewData.groupedData[1].dateTable, 'correct dateTable');
+                assert.deepEqual(viewDataMap, expectedViewDataMap, 'correct viewDataMap');
+            });
         });
     });
 
+    QUnit.test('should generate text correctly in week view', function(assert) {
+        this.createInstance({
+            showAllDayPanel: false,
+        }, 'dxSchedulerWorkSpaceWeek');
+
+        this.instance.viewDataProvider.update();
+
+        const { viewData } = this.instance.viewDataProvider;
+        const { dateTable } = viewData.groupedData[0];
+
+        assert.equal(dateTable[0][0].text, '12:00 AM', 'correct text');
+        assert.equal(dateTable[1][0].text, '', 'correct text');
+    });
+
     QUnit.module('getCellData', () => {
-        QUnit.test('should return cell data in basic case', function(assert) {
-            this.createInstance({
-                showAllDayPanel: false,
+        ['standard', 'virtual'].forEach(scrollingMode => {
+            QUnit.test(`should return cell data in basic case if ${scrollingMode} scrolling mode`, function(assert) {
+                this.createInstance({
+                    showAllDayPanel: false,
+                    scrolling: {
+                        mode: scrollingMode
+                    }
+                });
+                const $cell = this.instance.$element().find(`.${CELL_CLASS}`).eq(0);
+                const result = this.instance.getCellData($cell);
+                const expected = {
+                    startDate: new Date(2020, 6, 29, 0, 0),
+                    endDate: new Date(2020, 6, 29, 0, 30),
+                    allDay: false,
+                    groupIndex: 0,
+                    index: 0,
+                    text: '12:00 AM',
+                    key: 0,
+                };
+
+                assert.deepEqual(result, expected, 'correct cell data');
             });
-            const $cell = this.instance.$element().find('.' + CELL_CLASS).eq(0);
-            const result = this.instance.getCellData($cell);
-            const expected = {
-                startDate: new Date(2020, 6, 29, 0, 0),
-                endDate: new Date(2020, 6, 29, 0, 30),
-                allDay: false,
-                text: '12:00 AM',
-            };
 
-            assert.deepEqual(result, expected, 'correct cell data');
-        });
+            QUnit.test(`should return cell data when all-day-panel is enabled if ${scrollingMode} scrolling mode`, function(assert) {
+                this.createInstance({
+                    showAllDayPanel: true,
+                    scrolling: {
+                        mode: scrollingMode
+                    }
+                });
+                const $cell = this.instance.$element().find('.' + CELL_CLASS).eq(0);
+                const result = this.instance.getCellData($cell);
+                const expected = {
+                    startDate: new Date(2020, 6, 29, 0, 0),
+                    endDate: new Date(2020, 6, 29, 0, 30),
+                    allDay: false,
+                    groupIndex: 0,
+                    index: 0,
+                    text: '12:00 AM',
+                    key: 0,
+                };
 
-        QUnit.test('should return cell data when all-day-panel is enabled', function(assert) {
-            this.createInstance({
-                showAllDayPanel: true,
+                assert.deepEqual(result, expected, 'correct cell data');
             });
-            const $cell = this.instance.$element().find('.' + CELL_CLASS).eq(0);
-            const result = this.instance.getCellData($cell);
-            const expected = {
-                startDate: new Date(2020, 6, 29, 0, 0),
-                endDate: new Date(2020, 6, 29, 0, 30),
-                allDay: false,
-                text: '12:00 AM',
-            };
 
-            assert.deepEqual(result, expected, 'correct cell data');
-        });
+            QUnit.test(`should return cell data when appointments are grouped horizontally if ${scrollingMode} scrolling mode`, function(assert) {
+                this.createInstance({
+                    groupOrientation: 'horizontal',
+                    scrolling: {
+                        mode: scrollingMode
+                    }
+                });
+                this.instance.option('groups', [
+                    {
+                        name: 'res',
+                        items: [
+                            { id: 1, text: 'one' }, { id: 2, text: 'two' }
+                        ]
+                    }
+                ]);
+                const $cell = this.instance.$element().find(`.${CELL_CLASS}`).eq(1);
+                const result = this.instance.getCellData($cell);
+                const expected = {
+                    startDate: new Date(2020, 6, 29, 0, 0),
+                    endDate: new Date(2020, 6, 29, 0, 30),
+                    allDay: false,
+                    text: '',
+                    groups: { res: 2 },
+                    groupIndex: 1,
+                    index: 0,
+                    key: 1,
+                };
 
-        QUnit.test('should return cell data when appointments are grouped horizontally', function(assert) {
-            this.createInstance({
-                groupOrientation: 'horizontal',
+                assert.deepEqual(result, expected, 'correct cell data');
             });
-            this.instance.option('groups', [
-                {
-                    name: 'res',
-                    items: [
-                        { id: 1, text: 'one' }, { id: 2, text: 'two' }
-                    ]
-                }
-            ]);
-            const $cell = this.instance.$element().find('.' + CELL_CLASS).eq(1);
-            const result = this.instance.getCellData($cell);
-            const expected = {
-                startDate: new Date(2020, 6, 29, 0, 0),
-                endDate: new Date(2020, 6, 29, 0, 30),
-                allDay: false,
-                text: '12:00 AM',
-                groups: { res: 2 },
-            };
 
-            assert.deepEqual(result, expected, 'correct cell data');
-        });
+            QUnit.test(`should return cell data when appointments are grouped vertically if ${scrollingMode} scrolling mode`, function(assert) {
+                this.createInstance({
+                    groupOrientation: 'vertical',
+                    showAllDayPanel: false,
+                    scrolling: {
+                        mode: scrollingMode
+                    }
+                });
+                this.instance.option('groups', [
+                    {
+                        name: 'res',
+                        items: [
+                            { id: 1, text: 'one' }, { id: 2, text: 'two' }
+                        ]
+                    }
+                ]);
+                const $cell = this.instance.$element().find('.' + CELL_CLASS).eq(1);
+                const result = this.instance.getCellData($cell);
+                const expected = {
+                    startDate: new Date(2020, 6, 29, 0, 30),
+                    endDate: new Date(2020, 6, 29, 1, 0),
+                    allDay: false,
+                    text: '',
+                    groups: { res: 1 },
+                    groupIndex: 0,
+                    index: 1,
+                    key: 1,
+                };
 
-        QUnit.test('should return cell data when appointments are grouped vertically', function(assert) {
-            this.createInstance({
-                groupOrientation: 'vertical',
-                showAllDayPanel: false,
+                assert.deepEqual(result, expected, 'correct cell data');
             });
-            this.instance.option('groups', [
-                {
-                    name: 'res',
-                    items: [
-                        { id: 1, text: 'one' }, { id: 2, text: 'two' }
-                    ]
-                }
-            ]);
-            const $cell = this.instance.$element().find('.' + CELL_CLASS).eq(1);
-            const result = this.instance.getCellData($cell);
-            const expected = {
-                startDate: new Date(2020, 6, 29, 0, 30),
-                endDate: new Date(2020, 6, 29, 1, 0),
-                allDay: false,
-                text: '',
-                groups: { res: 1 },
-            };
-
-            assert.deepEqual(result, expected, 'correct cell data');
         });
     });
 
@@ -3989,5 +4299,72 @@ QUnit.module('Renovated Render', {
             endDate: undefined,
             groups: undefined,
         }, 'Cell Data is correct');
+    });
+
+    QUnit.module('Renovated Components Disposing', () => {
+        QUnit.test('Renovated Comonents should not be disposed on currentDate change', function(assert) {
+            this.createInstance({
+                currentDate: new Date(2020, 8, 1),
+            });
+
+            const disposeRenovatedComponentsStub = sinon.spy(noop);
+
+            this.instance._disposeRenovatedComponents = disposeRenovatedComponentsStub;
+
+            this.instance.option('currentDate', new Date(2020, 8, 2));
+
+            assert.notOk(disposeRenovatedComponentsStub.called, 'Renovated components weren\'t disposed');
+        });
+
+        QUnit.test('Renovated Comonents should be disposed on showAllDayPanel change when vertical grouping is used', function(assert) {
+            this.createInstance({
+                showAllDayPanel: false,
+                groupOrientation: 'vertical',
+            });
+            this.instance.option('groups', [
+                {
+                    name: 'res',
+                    items: [
+                        { id: 1, text: 'one' }, { id: 2, text: 'two' }
+                    ]
+                }
+            ]);
+
+            const disposeRenovatedComponentsStub = sinon.spy(noop);
+
+            this.instance._disposeRenovatedComponents = disposeRenovatedComponentsStub;
+
+            this.instance.option('showAllDayPanel', true);
+
+            assert.ok(disposeRenovatedComponentsStub.called, 'Renovated components weren\'t disposed');
+        });
+
+        QUnit.test('Renovated Comonents should be disposed on groups change', function(assert) {
+            this.createInstance({
+                groupOrientation: 'vertical',
+            });
+
+            const disposeRenovatedComponentsStub = sinon.spy(noop);
+            this.instance._disposeRenovatedComponents = disposeRenovatedComponentsStub;
+
+            this.instance.option('groups', [
+                {
+                    name: 'res',
+                    items: [
+                        { id: 1, text: 'one' }, { id: 2, text: 'two' }
+                    ]
+                }
+            ]);
+
+            assert.ok(disposeRenovatedComponentsStub.called, 'Renovated components weren\'t disposed');
+        });
+    });
+
+    QUnit.test('Workspace should not have dx-scheduler-work-space-odd-cells class when scrolling mode is "virtual"', function(assert) {
+        this.createInstance({
+            scrolling: { mode: 'virtual' },
+        });
+
+        assert.notOk(this.instance.$element().hasClass('dx-scheduler-work-space-odd-cells'), 'Workspace does not have odd-cells class');
     });
 });

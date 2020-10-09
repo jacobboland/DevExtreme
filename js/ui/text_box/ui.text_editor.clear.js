@@ -1,9 +1,11 @@
 import $ from '../../core/renderer';
 import eventsEngine from '../../events/core/events_engine';
 import TextEditorButton from './texteditor_button_collection/button';
-import { addNamespace } from '../../events/utils';
-import { down as pointerDown } from '../../events/pointer';
+import { addNamespace } from '../../events/utils/index';
+import pointer from '../../events/pointer';
 import { name as click } from '../../events/click';
+
+const pointerDown = pointer.down;
 
 const STATE_INVISIBLE_CLASS = 'dx-state-invisible';
 const TEXTEDITOR_CLEAR_BUTTON_CLASS = 'dx-clear-button-area';
