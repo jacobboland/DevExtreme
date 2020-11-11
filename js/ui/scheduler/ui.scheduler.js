@@ -2291,17 +2291,18 @@ class Scheduler extends Widget {
     _getRecurrenceException(appointmentData) {
         let recurrenceException = this.fire('getField', 'recurrenceException', appointmentData);
 
-        if(recurrenceException) {
-            const startDate = this.fire('getField', 'startDate', appointmentData);
-            const exceptions = recurrenceException.split(',');
-            const startDateTimeZone = this.fire('getField', 'startDateTimeZone', appointmentData);
+        // JLB - we don't send timezone dates to dx, so this isn't needed for Valant
+        // if(recurrenceException) {
+        //     const startDate = this.fire('getField', 'startDate', appointmentData);
+        //     const exceptions = recurrenceException.split(',');
+        //     const startDateTimeZone = this.fire('getField', 'startDateTimeZone', appointmentData);
 
-            for(let i = 0; i < exceptions.length; i++) {
-                exceptions[i] = this._convertRecurrenceException(exceptions[i], startDate, startDateTimeZone);
-            }
+        //     for(let i = 0; i < exceptions.length; i++) {
+        //         exceptions[i] = this._convertRecurrenceException(exceptions[i], startDate, startDateTimeZone);
+        //     }
 
-            recurrenceException = exceptions.join();
-        }
+        //     recurrenceException = exceptions.join();
+        // }
 
         return recurrenceException;
     }
