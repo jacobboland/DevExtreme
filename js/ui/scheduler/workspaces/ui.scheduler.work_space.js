@@ -702,7 +702,7 @@ class SchedulerWorkSpace extends WidgetObserver {
         this._renderView();
     }
 
-    _init: function() {
+    _init() {
         this._headerSemaphore = new ScrollSemaphore();
         this._sideBarSemaphore = new ScrollSemaphore();
         this._dataTableSemaphore = new ScrollSemaphore();
