@@ -25,6 +25,7 @@ const FILEUPLOADER_CONTENT_CLASS = 'dx-fileuploader-content';
 const FILEUPLOADER_INPUT_WRAPPER_CLASS = 'dx-fileuploader-input-wrapper';
 const FILEUPLOADER_BUTTON_CLASS = 'dx-fileuploader-button';
 const FILEUPLOADER_INPUT_CONTAINER_CLASS = 'dx-fileuploader-input-container';
+const FILEUPLOADER_INPUT_LABEL_CLASS = 'dx-fileuploader-input-label';
 const FILEUPLOADER_INPUT_CLASS = 'dx-fileuploader-input';
 const FILEUPLOADER_FILES_CONTAINER_CLASS = 'dx-fileuploader-files-container';
 const FILEUPLOADER_FILE_CONTAINER_CLASS = 'dx-fileuploader-file-container';
@@ -3227,14 +3228,19 @@ QUnit.module('Drag and drop', moduleConfig, () => {
         assert.deepEqual($fileUploader.dxFileUploader('option', 'value'), files, 'files are correct');
     });
 
-    QUnit.test('T328503 - drop field should be hidden if upload mode is useForm and native drop is not supported', function(assert) {
+    QUnit.test('T328503 - drop field should be visible, but default text is empty if upload mode is useForm and native drop is not supported', function(assert) {
+        // behavior changed beacause of T936087
         const $fileUploader = $('#fileuploader').dxFileUploader({
             uploadMode: 'useForm',
             nativeDropSupported: false
         });
+        const fileUploader = $fileUploader.dxFileUploader('instance');
         const $inputContainer = $fileUploader.find('.' + FILEUPLOADER_INPUT_CONTAINER_CLASS);
+        const $inputLabel = $inputContainer.find('.' + FILEUPLOADER_INPUT_LABEL_CLASS);
 
-        assert.ok(!$inputContainer.is(':visible'), 'input container is hidden');
+        assert.ok($inputContainer.is(':visible'), 'input container is visible');
+        assert.strictEqual($inputLabel.text(), '', 'label has empty line text');
+        assert.strictEqual(fileUploader.option('labelText'), '', 'labelText option has empty line text');
     });
 
     QUnit.test('T370412 - it is impossible to drop some files if the \'multiple\' option is false', function(assert) {
@@ -3382,8 +3388,9 @@ QUnit.module('Drag and drop', moduleConfig, () => {
         assert.equal($fileUploader.dxFileUploader('option', 'value[0]').name, firstFile.name, 'added file is correct');
     });
 
-    QUnit.test('dropZoneEnter and dropZoneLeave events should fire on correspondent interactions in a custom drop zone', function(assert) {
+    QUnit.test('dropZoneEnter and dropZoneLeave events should fire once on correspondent interactions in a custom drop zone', function(assert) {
         const customDropZone = $('<div>').addClass('drop').appendTo('#qunit-fixture');
+        const dropZoneChild = $('<div>').appendTo(customDropZone);
         const onDropZoneEnterSpy = sinon.spy();
         const onDropZoneLeaveSpy = sinon.spy();
         $('#fileuploader').dxFileUploader({
@@ -3392,22 +3399,27 @@ QUnit.module('Drag and drop', moduleConfig, () => {
             onDropZoneEnter: onDropZoneEnterSpy,
             onDropZoneLeave: onDropZoneLeaveSpy
         });
-        const files = [fakeFile];
-        const enterEvent = $.Event($.Event('dragenter', { dataTransfer: { files: files } }));
-        const leaveEvent = $.Event($.Event('dragleave', { dataTransfer: { files: files } }));
 
-        customDropZone.trigger(enterEvent);
-        assert.ok(onDropZoneEnterSpy.calledOnce, 'dropZoneEnter called');
+        customDropZone.trigger('dragenter');
+        assert.ok(onDropZoneEnterSpy.calledOnce, 'dropZoneEnter called once');
         assert.strictEqual(onDropZoneEnterSpy.args[0][0].dropZoneElement, customDropZone[0], 'dropZone argument is correct');
 
-        customDropZone.trigger(leaveEvent);
-        assert.ok(onDropZoneLeaveSpy.calledOnce, 'dropZoneLeave called');
+        dropZoneChild.trigger('dragenter');
+        assert.ok(onDropZoneEnterSpy.calledOnce, 'dropZoneEnter not called');
+        assert.strictEqual(onDropZoneEnterSpy.args[1], undefined, 'dropZoneEnter not called');
+
+        dropZoneChild.trigger('dragleave');
+        assert.ok(onDropZoneLeaveSpy.notCalled, 'dropZoneLeave not called');
+        assert.strictEqual(onDropZoneLeaveSpy.args[0], undefined, 'dropZoneLeave not called');
+
+        customDropZone.trigger('dragleave');
+        assert.ok(onDropZoneLeaveSpy.calledOnce, 'dropZoneLeave called once');
         assert.strictEqual(onDropZoneLeaveSpy.args[0][0].dropZoneElement, customDropZone[0], 'dropZone argument is correct');
 
         customDropZone.remove();
     });
 
-    QUnit.test('dropZoneEnter and dropZoneLeave events should fire on correspondent interactions in the deafult drop zone', function(assert) {
+    QUnit.test('dropZoneEnter and dropZoneLeave events should fire once on correspondent interactions in the deafult drop zone', function(assert) {
         const onDropZoneEnterSpy = sinon.spy();
         const onDropZoneLeaveSpy = sinon.spy();
         const $fileUploader = $('#fileuploader').dxFileUploader({
@@ -3417,18 +3429,49 @@ QUnit.module('Drag and drop', moduleConfig, () => {
         });
         const $inputWrapper = $fileUploader.find('.' + FILEUPLOADER_INPUT_WRAPPER_CLASS);
 
-        const files = [fakeFile];
-        const enterEvent = $.Event($.Event('dragenter', { dataTransfer: { files: files } }));
-        const leaveEvent = $.Event($.Event('dragleave', { dataTransfer: { files: files } }));
-
-        $inputWrapper.trigger(enterEvent);
-        assert.ok(onDropZoneEnterSpy.calledOnce, 'dropZoneEnter called');
+        $inputWrapper.trigger('dragenter');
+        assert.ok(onDropZoneEnterSpy.calledOnce, 'dropZoneEnter called once');
         assert.strictEqual(onDropZoneEnterSpy.args[0][0].dropZoneElement, $inputWrapper[0], 'dropZone argument is correct');
 
-        $inputWrapper.trigger(leaveEvent);
-        assert.ok(onDropZoneLeaveSpy.calledOnce, 'dropZoneLeave called');
+        $inputWrapper.trigger('dragenter');
+        assert.ok(onDropZoneEnterSpy.calledOnce, 'dropZoneEnter not called');
+        assert.strictEqual(onDropZoneEnterSpy.args[1], undefined, 'dropZoneEnter not called');
+
+        $inputWrapper.trigger('dragleave');
+        assert.ok(onDropZoneLeaveSpy.calledOnce, 'dropZoneLeave called once');
         assert.strictEqual(onDropZoneLeaveSpy.args[0][0].dropZoneElement, $inputWrapper[0], 'dropZone argument is correct');
 
+    });
+
+    QUnit.test('Custom label text must be shown anyway, enven if upload mode is useForm and native drop is not supported (T936087)', function(assert) {
+        const customLabelText = 'custom label text';
+        const $fileUploader = $('#fileuploader').dxFileUploader({
+            uploadMode: 'useForm',
+            nativeDropSupported: false,
+            labelText: customLabelText
+        });
+        const fileUploader = $fileUploader.dxFileUploader('instance');
+        const $inputContainer = $fileUploader.find('.' + FILEUPLOADER_INPUT_CONTAINER_CLASS);
+        const $inputLabel = $inputContainer.find('.' + FILEUPLOADER_INPUT_LABEL_CLASS);
+
+        assert.ok($inputContainer.is(':visible'), 'input container is visible');
+        assert.strictEqual($inputLabel.text(), customLabelText, 'label has custom text');
+        assert.strictEqual(fileUploader.option('labelText'), customLabelText, 'labelText option has custom text');
+    });
+
+    QUnit.test('Default label text must be shown if upload mode is useForm and native drop is supported (T936087)', function(assert) {
+        const defaultLabelText = 'or Drop file here';
+        const $fileUploader = $('#fileuploader').dxFileUploader({
+            uploadMode: 'useForm',
+            nativeDropSupported: true
+        });
+        const fileUploader = $fileUploader.dxFileUploader('instance');
+        const $inputContainer = $fileUploader.find('.' + FILEUPLOADER_INPUT_CONTAINER_CLASS);
+        const $inputLabel = $inputContainer.find('.' + FILEUPLOADER_INPUT_LABEL_CLASS);
+
+        assert.ok($inputContainer.is(':visible'), 'input container is visible');
+        assert.strictEqual($inputLabel.text(), defaultLabelText, 'label has default text');
+        assert.strictEqual(fileUploader.option('labelText'), defaultLabelText, 'labelText option has default text');
     });
 });
 
@@ -3518,21 +3561,27 @@ QUnit.module('disabled option', () => {
 });
 
 QUnit.module('readOnly option', moduleConfig, () => {
-    QUnit.test('file input container should be hidden', function(assert) {
+    QUnit.test('file input container should be shown but text empty', function(assert) {
+        // behavior changed beacause of T936087
+        const defaultLabelText = 'or Drop file here';
         const $fileUploader = $('#fileuploader').dxFileUploader({
             readOnly: false,
             useDragOver: true,
             uploadMode: 'useButtons'
         });
         const $inputContainer = $fileUploader.find('.' + FILEUPLOADER_INPUT_CONTAINER_CLASS);
+        const $inputLabel = $inputContainer.find('.' + FILEUPLOADER_INPUT_LABEL_CLASS);
 
-        assert.ok($inputContainer.is(':visible'), 'input container is hidden');
+        assert.ok($inputContainer.is(':visible'), 'input container is visible');
+        assert.strictEqual($inputLabel.text(), defaultLabelText, 'label has default text');
 
         $fileUploader.dxFileUploader('option', 'readOnly', true);
-        assert.notOk($inputContainer.is(':visible'), 'input container is hidden');
+        assert.ok($inputContainer.is(':visible'), 'input container is visible');
+        assert.strictEqual($inputLabel.text(), '', 'label has empty line text');
 
         $fileUploader.dxFileUploader('option', 'readOnly', false);
-        assert.ok($inputContainer.is(':visible'), 'input container is hidden');
+        assert.ok($inputContainer.is(':visible'), 'input container is visible');
+        assert.strictEqual($inputLabel.text(), defaultLabelText, 'label has default text');
     });
 
     QUnit.test('select button should be disabled', function(assert) {

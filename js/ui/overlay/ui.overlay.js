@@ -11,12 +11,12 @@ import { inArray } from '../../core/utils/array';
 import browser from '../../core/utils/browser';
 import { noop } from '../../core/utils/common';
 import { Deferred } from '../../core/utils/deferred';
-import domUtils from '../../core/utils/dom';
+import { contains, resetActiveElement } from '../../core/utils/dom';
 import { extend } from '../../core/utils/extend';
 import { each } from '../../core/utils/iterator';
 import { fitIntoRange } from '../../core/utils/math';
 import readyCallbacks from '../../core/utils/ready_callbacks';
-import { isString, isDefined, isFunction, isPlainObject, isWindow } from '../../core/utils/type';
+import { isString, isDefined, isFunction, isPlainObject, isWindow, isEvent } from '../../core/utils/type';
 import { compare as compareVersions } from '../../core/utils/version';
 import { changeCallback, originalViewPort, value as viewPort } from '../../core/utils/view_port';
 import { getNavigator, getWindow, hasWindow } from '../../core/utils/window';
@@ -102,7 +102,11 @@ const forceRepaint = $element => {
 
 
 const getElement = value => {
-    return value && $(value.target || value);
+    if(isEvent(value)) {
+        value = value.target;
+    }
+
+    return $(value);
 };
 
 ready(() => {
@@ -231,7 +235,8 @@ const Overlay = Widget.inherit({
             boundaryOffset: { h: 0, v: 0 },
             propagateOutsideClick: false,
             ignoreChildEvents: true,
-            _checkParentVisibility: true
+            _checkParentVisibility: true,
+            _fixedPosition: false
         });
     },
 
@@ -408,9 +413,9 @@ const Overlay = Widget.inherit({
         }
 
         const $container = this._$content;
-        const isAttachedTarget = $(window.document).is(e.target) || domUtils.contains(window.document, e.target);
+        const isAttachedTarget = $(window.document).is(e.target) || contains(window.document, e.target);
         const isInnerOverlay = $(e.target).closest('.' + INNER_OVERLAY_CLASS).length;
-        const outsideClick = isAttachedTarget && !isInnerOverlay && !($container.is(e.target) || domUtils.contains($container.get(0), e.target));
+        const outsideClick = isAttachedTarget && !isInnerOverlay && !($container.is(e.target) || contains($container.get(0), e.target));
 
         if(outsideClick && closeOnOutsideClick) {
             this._outsideClickHandler(e);
@@ -632,7 +637,7 @@ const Overlay = Widget.inherit({
         const shouldResetActiveElement = !!this._$content.find(activeElement).length;
 
         if(shouldResetActiveElement) {
-            domUtils.resetActiveElement();
+            resetActiveElement();
         }
     },
 
@@ -778,7 +783,7 @@ const Overlay = Widget.inherit({
         const isTabOnLast = !e.shiftKey && e.target === $lastTabbable.get(0);
         const isShiftTabOnFirst = e.shiftKey && e.target === $firstTabbable.get(0);
         const isEmptyTabList = tabbableElements.length === 0;
-        const isOutsideTarget = !domUtils.contains(this._$wrapper.get(0), e.target);
+        const isOutsideTarget = !contains(this._$wrapper.get(0), e.target);
 
         if(isTabOnLast || isShiftTabOnFirst ||
             isEmptyTabList || isOutsideTarget) {
@@ -1151,12 +1156,18 @@ const Overlay = Widget.inherit({
     },
 
     _useFixedPosition: function() {
+        return this._shouldFixBodyPosition()
+            || this.option('_fixedPosition');
+    },
+
+    _shouldFixBodyPosition: function() {
         const $container = this._getContainer();
-        return this._isWindow($container) && (!iOS || this._bodyScrollTop !== undefined);
+        return this._isWindow($container)
+            && (!iOS || this._bodyScrollTop !== undefined);
     },
 
     _toggleSafariScrolling: function(scrollingEnabled) {
-        if(iOS && this._useFixedPosition()) {
+        if(iOS && this._shouldFixBodyPosition()) {
             const body = domAdapter.getBody();
             if(scrollingEnabled) {
                 $(body).removeClass(PREVENT_SAFARI_SCROLLING_CLASS);
@@ -1185,8 +1196,8 @@ const Overlay = Widget.inherit({
 
         const isWindow = this._isWindow($container);
 
-        wrapperWidth = isWindow ? null : $container.outerWidth(),
-        wrapperHeight = isWindow ? null : $container.outerHeight();
+        wrapperWidth = isWindow ? '' : $container.outerWidth(),
+        wrapperHeight = isWindow ? '' : $container.outerHeight();
 
         this._$wrapper.css({
             width: wrapperWidth,
@@ -1212,8 +1223,7 @@ const Overlay = Widget.inherit({
         let positionOf = null;
 
         if(!container && position) {
-            const isEvent = !!(position.of && position.of.preventDefault);
-            positionOf = isEvent ? window : (position.of || window);
+            positionOf = isEvent(position.of) ? window : (position.of || window);
         }
 
         return getElement(container || positionOf);
@@ -1432,6 +1442,9 @@ const Overlay = Widget.inherit({
             case 'rtlEnabled':
                 this._contentAlreadyRendered = false;
                 this.callBase(args);
+                break;
+            case '_fixedPosition':
+                this._fixWrapperPosition();
                 break;
             default:
                 this.callBase(args);

@@ -145,7 +145,6 @@ const SchedulerAppointments = CollectionWidget.inherit({
                 this._cleanFocusState();
                 this._clearDropDownItems();
                 this._clearDropDownItemsElements();
-
                 this._repaintAppointments(args.value);
                 this._renderDropDownAppointments();
 
@@ -186,6 +185,9 @@ const SchedulerAppointments = CollectionWidget.inherit({
     },
 
     _isRepaintAll: function(appointments) {
+        if(this.invoke('isVirtualScrolling')) {
+            return true;
+        }
         if(this.invoke('isCurrentViewAgenda')) {
             return true;
         }
@@ -205,16 +207,16 @@ const SchedulerAppointments = CollectionWidget.inherit({
     },
 
     _onEachAppointment: function(appointment, index, container, isRepaintAll) {
-        if(appointment && appointment.needRemove === true) {
-            this._clearItem(appointment);
-            return;
-        }
-
-        if(this._isRepaintAppointment(appointment)) {
+        const repaintAppointment = () => {
             appointment.needRepaint = false;
-            !isRepaintAll && this._clearItem(appointment);
-
+            this._clearItem(appointment);
             this._renderItem(index, appointment, container);
+        };
+
+        if(appointment?.needRemove === true) {
+            this._clearItem(appointment);
+        } else if(isRepaintAll || this._isRepaintAppointment(appointment)) {
+            repaintAppointment();
         }
     },
 
@@ -613,18 +615,23 @@ const SchedulerAppointments = CollectionWidget.inherit({
         });
     },
     _getEndResizeAppointmentStartDate: function(e, rawAppointment, appointmentInfo) {
+        const scheduler = this.option('observer');
+        const appointmentAdapter = scheduler.createAppointmentAdapter(rawAppointment);
+
         let startDate = appointmentInfo.startDate;
         const recurrenceProcessor = getRecurrenceProcessor();
-        const recurrenceRule = this.invoke('getField', 'recurrenceRule', rawAppointment);
-        const isRecurrent = recurrenceProcessor.isValidRecurrenceRule(recurrenceRule);
+        const { recurrenceRule, startDateTimeZone } = appointmentAdapter;
         const isAllDay = this.invoke('isAllDay', rawAppointment);
+        const isRecurrent = recurrenceProcessor.isValidRecurrenceRule(recurrenceRule);
 
         if(!e.handles.top && !isRecurrent && !isAllDay) {
-            const scheduler = this.option('observer');
-            startDate = scheduler.timeZoneCalculator.createDate(rawAppointment.startDate, {
-                appointmentTimeZone: rawAppointment.startDateTimeZone,
-                path: 'toGrid'
-            });
+            startDate = scheduler.timeZoneCalculator.createDate(
+                appointmentAdapter.startDate,
+                {
+                    appointmentTimeZone: startDateTimeZone,
+                    path: 'toGrid'
+                },
+            );
         }
 
         return startDate;
@@ -981,7 +988,7 @@ const SchedulerAppointments = CollectionWidget.inherit({
             startDate.setDate(startDate.getDate() + 1);
         }
 
-        while(appointmentIsLong && startDate.getTime() < endDate.getTime() - 1 && startDate < maxAllowedDate) {
+        while(appointmentIsLong && startDate.getTime() < endDate.getTime() && startDate < maxAllowedDate) {
             const currentStartDate = new Date(startDate);
             const currentEndDate = new Date(startDate);
 
@@ -995,6 +1002,7 @@ const SchedulerAppointments = CollectionWidget.inherit({
             appointmentData.settings = appointmentSettings;
             result.push(appointmentData);
 
+            startDate = dateUtils.trimTime(startDate);
             startDate.setDate(startDate.getDate() + 1);
             startDate.setHours(startDayHour);
         }

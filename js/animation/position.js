@@ -69,13 +69,14 @@ import { isWindow } from '../core/utils/type';
 import { extend } from '../core/utils/extend';
 import { getBoundingRect } from '../core/utils/position';
 import browser from '../core/utils/browser';
-import translator from './translator';
-import support from '../core/utils/support';
+import { resetPosition, move } from './translator';
+import { touch } from '../core/utils/support';
 import devices from '../core/devices';
 
 const horzRe = /left|right/;
 const vertRe = /top|bottom/;
 const collisionRe = /fit|flip|none/;
+const scaleRe = /scale(.+)/;
 const IS_SAFARI = browser.safari;
 
 const normalizeAlign = function(raw) {
@@ -315,8 +316,8 @@ const calculatePosition = function(what, options) {
                 h.atSize = of[0].visualViewport.width;
                 v.atSize = of[0].visualViewport.height;
             } else {
-                h.atSize = of[0].innerWidth >= of[0].outerWidth ? of[0].innerWidth : of.width();
-                v.atSize = of[0].innerHeight >= of[0].outerHeight || IS_SAFARI ? of[0].innerHeight : of.height();
+                h.atSize = of[0].innerWidth > of[0].outerWidth ? of[0].innerWidth : of.width();
+                v.atSize = of[0].innerHeight > of[0].outerHeight || IS_SAFARI ? of[0].innerHeight : of.height();
             }
         } else if(of[0].nodeType === 9) {
             h.atLocation = 0;
@@ -343,8 +344,8 @@ const calculatePosition = function(what, options) {
         let left = win.scrollLeft();
         let top = win.scrollTop();
         const documentElement = domAdapter.getDocumentElement();
-        const hZoomLevel = support.touch ? documentElement.clientWidth / windowWidth : 1;
-        const vZoomLevel = support.touch ? documentElement.clientHeight / windowHeight : 1;
+        const hZoomLevel = touch ? documentElement.clientWidth / windowWidth : 1;
+        const vZoomLevel = touch ? documentElement.clientHeight / windowHeight : 1;
 
         if(scrollbarWidth === undefined) {
             calculateScrollbarWidth();
@@ -405,16 +406,21 @@ const calculatePosition = function(what, options) {
 
 const getOffsetWithoutScale = function($startElement, $currentElement = $startElement) {
     const currentElement = $currentElement.get(0);
-    if(!currentElement || $currentElement.is('body')) {
+    if(!currentElement) {
         return $startElement.offset();
     }
 
-    const transform = $currentElement.get(0).style.transform;
-    const scale = (transform.match(/scale(.+)/) || [])[0];
+    const style = currentElement.getAttribute?.('style') || '';
+    const scale = style.match(scaleRe)?.[0];
+    let offset;
 
-    currentElement.style.transform = transform.replace(scale, '');
-    const offset = getOffsetWithoutScale($startElement, $currentElement.parent());
-    currentElement.style.transform = transform;
+    if(scale) {
+        currentElement.setAttribute('style', style.replace(scale, ''));
+        offset = getOffsetWithoutScale($startElement, $currentElement.parent());
+        currentElement.setAttribute('style', style);
+    } else {
+        offset = getOffsetWithoutScale($startElement, $currentElement.parent());
+    }
 
     return offset;
 };
@@ -426,7 +432,7 @@ const position = function(what, options) {
         return $what.offset();
     }
 
-    translator.resetPosition($what, true);
+    resetPosition($what, true);
 
 
     const offset = getOffsetWithoutScale($what);
@@ -436,7 +442,7 @@ const position = function(what, options) {
         return options.precise ? number : Math.round(number);
     };
 
-    translator.move($what, {
+    move($what, {
         left: targetPosition.h.location - preciser(offset.left),
         top: targetPosition.v.location - preciser(offset.top)
     });

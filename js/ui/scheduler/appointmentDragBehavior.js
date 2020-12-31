@@ -56,8 +56,11 @@ export default class AppointmentDragBehavior {
     }
 
     getItemData(appointmentElement) {
-        const itemData = $(appointmentElement).data(LIST_ITEM_DATA_KEY);
-        return itemData?.targetedAppointment || itemData?.appointment || this.appointments._getItemData(appointmentElement);
+        const dataFromTooltip = $(appointmentElement).data(LIST_ITEM_DATA_KEY);
+        const itemDataFromTooltip = dataFromTooltip?.appointment;
+        const itemDataFromGrid = this.appointments._getItemData(appointmentElement);
+
+        return itemDataFromTooltip || itemDataFromGrid;
     }
 
     getItemSettings(appointment) {
@@ -103,9 +106,11 @@ export default class AppointmentDragBehavior {
 
     createDropHandler(appointmentDragging) {
         return (e) => {
-            e.itemData = extend({}, e.itemData, this.appointments.invoke('getUpdatedData', {
+            const rawAppointment = extend({}, e.itemData, this.appointments.invoke('getUpdatedData', {
                 data: e.itemData
             }));
+
+            e.itemData = this.scheduler.createAppointmentAdapter(rawAppointment).clone({ pathTimeZone: 'fromGrid' }).source();
 
             if(e.fromComponent !== e.toComponent) {
                 appointmentDragging.onAdd && appointmentDragging.onAdd(e);

@@ -156,17 +156,19 @@ class TaskEditDialogInfo extends DialogInfoBase {
             editorType: 'dxTagBox',
             label: { text: messageLocalization.format('dxGantt-dialogResourcesTitle') },
             editorOptions: {
-                readOnly: readOnly,
+                readOnly: readOnly || !this._editingOptions.allowTaskResourceUpdating,
                 dataSource: this._parameters.resources.items,
                 displayExpr: 'text',
                 buttons: [{
                     name: 'editResources',
                     location: 'after',
                     options: {
+                        disabled: !this._editingOptions.allowResourceAdding && !this._editingOptions.allowResourceDeleting,
                         text: '...',
                         hint: messageLocalization.format('dxGantt-dialogEditResourceListHint'),
                         onClick: () => {
-                            this._parameters.showResourcesDialogCommand.execute();
+                            const showTaskEditDialogCallback = () => { this._parameters.showTaskEditDialogCommand.execute(); };
+                            this._parameters.showResourcesDialogCommand.execute(showTaskEditDialogCallback);
                         }
                     }
                 }]

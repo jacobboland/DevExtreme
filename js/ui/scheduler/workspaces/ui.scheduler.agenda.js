@@ -322,7 +322,7 @@ class SchedulerAgenda extends SchedulerWorkSpace {
     _attachEvents() { return noop(); }
     _cleanCellDataCache() { return noop(); }
 
-    needRenderDateTimeIndication() {
+    isIndicationAvailable() {
         return false;
     }
 
@@ -482,6 +482,37 @@ class SchedulerAgenda extends SchedulerWorkSpace {
             startDate: null,
             endDate: null
         };
+    }
+
+    updateScrollPosition(date) {
+        const scheduler = this.option('observer');
+        const newDate = scheduler.timeZoneCalculator.createDate(date, { path: 'toGrid' });
+
+        const bounds = this.getVisibleBounds();
+        const startDateHour = newDate.getHours();
+        const startDateMinutes = newDate.getMinutes();
+
+        if(this.needUpdateScrollPosition(startDateHour, startDateMinutes, bounds, newDate)) {
+            this.scrollToTime(startDateHour, startDateMinutes, newDate);
+        }
+    }
+
+    needUpdateScrollPosition(hours, minutes, bounds) {
+        let isUpdateNeeded = false;
+
+        if(hours < bounds.top.hours || hours > bounds.bottom.hours) {
+            isUpdateNeeded = true;
+        }
+
+        if(hours === bounds.top.hours && minutes < bounds.top.minutes) {
+            isUpdateNeeded = true;
+        }
+
+        if(hours === bounds.bottom.hours && minutes > bounds.top.minutes) {
+            isUpdateNeeded = true;
+        }
+
+        return isUpdateNeeded;
     }
 }
 

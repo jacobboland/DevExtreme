@@ -24,6 +24,7 @@ const CLASS = {
   popupContent: 'dx-overlay-content',
   toolbar: 'dx-toolbar',
   fixedGridView: 'content-fixed',
+  rowsView: 'rowsview',
 };
 
 export default class DataGrid extends Widget {
@@ -53,6 +54,10 @@ export default class DataGrid extends Widget {
 
   getHeaders(): Headers {
     return new Headers(this.element.find(`.${this.addWidgetPrefix(CLASS.headers)}`), this.name);
+  }
+
+  getRowsView(): Selector {
+    return this.element.find(`.${this.addWidgetPrefix(CLASS.rowsView)}`);
   }
 
   getDataRow(index: number): DataRow {
@@ -101,6 +106,15 @@ export default class DataGrid extends Widget {
 
     return ClientFunction(
       () => (getGridInstance() as any).getScrollable().scrollLeft(),
+      { dependencies: { getGridInstance } },
+    )();
+  }
+
+  getScrollWidth(): Promise<number> {
+    const { getGridInstance } = this;
+
+    return ClientFunction(
+      () => (getGridInstance() as any).getScrollable().scrollWidth(),
       { dependencies: { getGridInstance } },
     )();
   }
@@ -199,7 +213,7 @@ export default class DataGrid extends Widget {
   apiCellValue(rowIndex: number, columnIndex: number, value: string): Promise<void> {
     const { getGridInstance } = this;
     return ClientFunction(
-      () => (getGridInstance() as any).editCell(rowIndex, columnIndex, value),
+      () => (getGridInstance() as any).cellValue(rowIndex, columnIndex, value),
       {
         dependencies: {
           getGridInstance, rowIndex, columnIndex, value,

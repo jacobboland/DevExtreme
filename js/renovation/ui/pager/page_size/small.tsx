@@ -45,7 +45,7 @@ export class PageSizeSmall
     );
   }
 
-  @Effect() updateWidth(): void {
+  @Effect({ run: 'always' }) updateWidth(): void {
     this.minWidth = getElementMinWidth(this.props.parentRef) || this.minWidth;
   }
 }

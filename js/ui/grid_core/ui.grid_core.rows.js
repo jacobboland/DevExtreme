@@ -6,12 +6,11 @@ import { setHeight } from '../../core/utils/style';
 import { isDefined, isNumeric, isString } from '../../core/utils/type';
 import { each } from '../../core/utils/iterator';
 import { extend } from '../../core/utils/extend';
-import { getBoundingRect } from '../../core/utils/position';
+import { getBoundingRect, getDefaultAlignment } from '../../core/utils/position';
 import { isEmpty } from '../../core/utils/string';
-import { getDefaultAlignment } from '../../core/utils/position';
 import { compileGetter } from '../../core/utils/data';
-import { setEmptyText, getGroupRowSummaryText, getDisplayValue, formatValue, renderLoadPanel, renderNoDataText } from './ui.grid_core.utils';
-import columnsView from './ui.grid_core.columns_view';
+import gridCoreUtils from './ui.grid_core.utils';
+import { ColumnsView } from './ui.grid_core.columns_view';
 import Scrollable from '../scroll_view/ui.scrollable';
 import removeEvent from '../../core/remove_event';
 import messageLocalization from '../../localization/message';
@@ -32,6 +31,10 @@ const EMPTY_CLASS = 'dx-empty';
 const ROW_INSERTED_ANIMATION_CLASS = 'row-inserted-animation';
 
 const LOADPANEL_HIDE_TIMEOUT = 200;
+
+function getMaxHorizontalScrollOffset(scrollable) {
+    return scrollable ? scrollable.scrollWidth() - scrollable.clientWidth() : 0;
+}
 
 export default {
     defaultOptions: function() {
@@ -112,14 +115,14 @@ export default {
         };
     },
     views: {
-        rowsView: columnsView.ColumnsView.inherit((function() {
+        rowsView: ColumnsView.inherit((function() {
             const defaultCellTemplate = function($container, options) {
                 const isDataTextEmpty = isEmpty(options.text) && options.rowType === 'data';
                 const text = options.text;
                 const container = $container.get(0);
 
                 if(isDataTextEmpty) {
-                    setEmptyText($container);
+                    gridCoreUtils.setEmptyText($container);
                 } else if(options.column.encodeHtml) {
                     container.textContent = text;
                 } else {
@@ -154,7 +157,7 @@ export default {
                         const container = $container.get(0);
 
                         if(options.summaryItems && options.summaryItems.length) {
-                            text += ' ' + getGroupRowSummaryText(options.summaryItems, summaryTexts);
+                            text += ' ' + gridCoreUtils.getGroupRowSummaryText(options.summaryItems, summaryTexts);
                         }
 
                         if(data) {
@@ -305,10 +308,14 @@ export default {
 
                 _handleScroll: function(e) {
                     const that = this;
+                    const rtlEnabled = that.option('rtlEnabled');
 
                     that._isScrollByEvent = !!e.event;
                     that._scrollTop = e.scrollOffset.top;
                     that._scrollLeft = e.scrollOffset.left;
+                    if(rtlEnabled) {
+                        this._scrollRight = getMaxHorizontalScrollOffset(e.component) - this._scrollLeft;
+                    }
                     that.scrollChanged.fire(e.scrollOffset, that.name);
                 },
 
@@ -324,7 +331,7 @@ export default {
                     that._scrollableContainer = that._scrollable && that._scrollable._$container;
                 },
 
-                _renderLoadPanel: renderLoadPanel,
+                _renderLoadPanel: gridCoreUtils.renderLoadPanel,
 
                 _renderContent: function(contentElement, tableElement) {
                     contentElement.empty().append(tableElement);
@@ -513,7 +520,8 @@ export default {
                         evaluate: function(expr) {
                             const getter = compileGetter(expr);
                             return getter(item.data);
-                        } }, e, item));
+                        }
+                    }, e, item));
                 },
 
                 _rowDblClick: function(e) {
@@ -693,7 +701,7 @@ export default {
                     const data = row.data;
                     const summaryCells = row && row.summaryCells;
                     const value = options.value;
-                    const displayValue = getDisplayValue(column, value, data, row.rowType);
+                    const displayValue = gridCoreUtils.getDisplayValue(column, value, data, row.rowType);
 
                     const parameters = this.callBase(options);
                     parameters.value = value;
@@ -704,7 +712,7 @@ export default {
                     parameters.data = data;
                     parameters.rowType = row.rowType;
                     parameters.values = row.values;
-                    parameters.text = !column.command ? formatValue(displayValue, column) : '';
+                    parameters.text = !column.command ? gridCoreUtils.formatValue(displayValue, column) : '';
                     parameters.rowIndex = row.rowIndex;
                     parameters.summaryItems = summaryCells && summaryCells[options.columnIndex];
                     parameters.resized = column.resizedCallbacks;
@@ -745,7 +753,7 @@ export default {
                     return getWindow().devicePixelRatio;
                 },
 
-                renderNoDataText: renderNoDataText,
+                renderNoDataText: gridCoreUtils.renderNoDataText,
 
                 getCellOptions: function(rowIndex, columnIdentifier) {
                     const rowOptions = this._dataController.items()[rowIndex];
@@ -866,6 +874,7 @@ export default {
                     that._rowHeight = 0;
                     that._scrollTop = 0;
                     that._scrollLeft = -1;
+                    that._scrollRight = 0;
                     that._hasHeight = false;
                     dataController.loadingChanged.add(function(isLoading, messageText) {
                         that.setLoading(isLoading, messageText);
@@ -873,7 +882,9 @@ export default {
 
                     dataController.dataSourceChanged.add(function() {
                         if(that._scrollLeft >= 0) {
-                            that._handleScroll({ scrollOffset: { top: that._scrollTop, left: that._scrollLeft } });
+                            that._handleScroll({
+                                component: that.getScrollable(),
+                                scrollOffset: { top: that._scrollTop, left: that._scrollLeft } });
                         }
                     });
                 },
@@ -954,6 +965,15 @@ export default {
                 _updateHorizontalScrollPosition: function() {
                     const scrollable = this.getScrollable();
                     const scrollLeft = scrollable && scrollable.scrollOffset().left;
+                    const rtlEnabled = this.option('rtlEnabled');
+
+                    if(rtlEnabled) {
+                        const maxHorizontalScrollOffset = getMaxHorizontalScrollOffset(scrollable);
+                        const scrollRight = maxHorizontalScrollOffset - scrollLeft;
+                        if(scrollRight !== this._scrollRight) {
+                            this._scrollLeft = maxHorizontalScrollOffset - this._scrollRight;
+                        }
+                    }
 
                     if(this._scrollLeft >= 0 && scrollLeft !== this._scrollLeft) {
                         scrollable.scrollTo({ x: this._scrollLeft });
@@ -965,6 +985,7 @@ export default {
 
                     that._fireColumnResizedCallbacks();
                     that._updateRowHeight();
+
                     deferRender(function() {
                         that._renderScrollable();
                         that.renderNoDataText();

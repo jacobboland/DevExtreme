@@ -17,7 +17,7 @@ import devices from '../../core/devices';
 import ListItem from './item';
 import Button from '../button';
 import { addNamespace } from '../../events/utils/index';
-import themes from '../themes';
+import { current, isMaterial } from '../themes';
 import { hasWindow } from '../../core/utils/window';
 import ScrollView from '../scroll_view';
 import { deviceDependentOptions } from '../scroll_view/ui.scrollable.device';
@@ -195,6 +195,8 @@ export const ListBase = CollectionWidget.inherit({
 
             _swipeEnabled: true,
 
+            _revertPageOnEmptyLoad: false,
+
             showChevronExpr: function(data) { return data ? data.showChevron : undefined; },
             badgeExpr: function(data) { return data ? data.badge : undefined; }
             /**
@@ -206,7 +208,7 @@ export const ListBase = CollectionWidget.inherit({
     },
 
     _defaultOptionsRules: function() {
-        const themeName = themes.current();
+        const themeName = current();
 
         return this.callBase().concat(deviceDependentOptions(), [
             {
@@ -237,7 +239,7 @@ export const ListBase = CollectionWidget.inherit({
             },
             {
                 device: function() {
-                    return themes.isMaterial(themeName);
+                    return isMaterial(themeName);
                 },
                 options: {
                     pullingDownText: '',
@@ -271,6 +273,14 @@ export const ListBase = CollectionWidget.inherit({
         return this._$container;
     },
 
+    _saveSelectionChangeEvent: function(e) {
+        this._selectionChangeEventInstance = e;
+    },
+
+    _getSelectionChangeEvent: function() {
+        return this._selectionChangeEventInstance;
+    },
+
     _refreshItemElements: function() {
         if(!this.option('grouped')) {
             this._itemElementsCache = this._itemContainer().children(this._itemSelector());
@@ -286,7 +296,7 @@ export const ListBase = CollectionWidget.inherit({
         this.callBase.apply(this, arguments);
 
         this._refreshItemElements();
-        this._updateLoadingState();
+        this._updateLoadingState(true);
     },
 
     reorderItem: function(itemElement, toItemElement) {
@@ -523,7 +533,21 @@ export const ListBase = CollectionWidget.inherit({
 
         if(isElementVisible && !this._scrollViewIsFull() && !this._isDataSourceLoading() && !this._isLastPage()) {
             clearTimeout(this._loadNextPageTimer);
-            this._loadNextPageTimer = setTimeout(this._loadNextPage.bind(this));
+            this._loadNextPageTimer = setTimeout(() => {
+                this._loadNextPage().done(this._setPreviousPageIfNewIsEmpty.bind(this));
+            });
+        }
+    },
+
+    _setPreviousPageIfNewIsEmpty: function(result) {
+        if(this.option('_revertPageOnEmptyLoad')) {
+            const dataSource = this.getDataSource();
+            const pageIndex = dataSource?.pageIndex();
+
+            if(result?.length === 0 && pageIndex > 0) {
+                this._fireContentReadyAction();
+                dataSource.pageIndex(pageIndex - 1);
+            }
         }
     },
 
@@ -543,7 +567,7 @@ export const ListBase = CollectionWidget.inherit({
             this._attachGroupCollapseEvent();
             this._renderEmptyMessage();
 
-            if(themes.isMaterial()) {
+            if(isMaterial()) {
                 this.attachGroupHeaderInkRippleEvents();
             }
         } else {
@@ -646,7 +670,7 @@ export const ListBase = CollectionWidget.inherit({
         };
 
         if(value) {
-            if(themes.isMaterial()) {
+            if(isMaterial()) {
                 this._inkRippleTimer = setTimeout(function() {
                     that._inkRipple.showWave(config);
                 }, LIST_FEEDBACK_SHOW_TIMEOUT / 2);
@@ -711,7 +735,7 @@ export const ListBase = CollectionWidget.inherit({
 
         this._createItemByTemplate(groupTemplate, renderArgs);
 
-        if(themes.isMaterial()) {
+        if(isMaterial()) {
             $('<div>')
                 .addClass(LIST_GROUP_HEADER_INDICATOR_CLASS)
                 .prependTo($groupHeaderElement);
@@ -815,7 +839,7 @@ export const ListBase = CollectionWidget.inherit({
         this._createComponent($button, Button, {
             text: this.option('nextButtonText'),
             onClick: this._nextButtonHandler.bind(this),
-            type: themes.isMaterial() ? 'default' : undefined,
+            type: isMaterial() ? 'default' : undefined,
             integrationOptions: {}
         });
 
@@ -904,6 +928,7 @@ export const ListBase = CollectionWidget.inherit({
                 this._invalidate();
                 break;
             case '_swipeEnabled':
+            case '_revertPageOnEmptyLoad':
                 break;
             case '_listAttributes':
                 break;

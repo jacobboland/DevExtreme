@@ -686,6 +686,33 @@ QUnit.module('Initialization', baseModuleConfig, () => {
         assert.equal($(rowsView.getRow(0)).find('td').eq(0).text(), '2', 'Focused row cell text');
     });
 
+    QUnit.test('Should not navigate to the focused row after scrolling if scrolling mode is infinite and preloadEnabled is true (T941254)', function(assert) {
+        // arrange
+        const dataGrid = $('#dataGrid').dxDataGrid({
+            height: 100,
+            keyExpr: 'id',
+            dataSource: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(id => ({ id })),
+            focusedRowEnabled: true,
+            focusedRowKey: 1,
+            paging: {
+                pageSize: 2
+            },
+            scrolling: {
+                mode: 'infinite',
+                preloadEnabled: true,
+                useNative: false
+            }
+        }).dxDataGrid('instance');
+        this.clock.tick();
+
+        // act
+        dataGrid.getScrollable().scrollTo({ top: 10000 });
+        this.clock.tick();
+
+        // assert
+        assert.equal(dataGrid.getTopVisibleRowData().id, 5, 'top visible row id');
+    });
+
     // T804927
     QUnit.test('focusedRowKey should not overwrite dataSource field', function(assert) {
         // arrange
@@ -3707,6 +3734,42 @@ QUnit.module('API methods', baseModuleConfig, () => {
 
         assert.notOk($(':focus').length, 'focus is lost');
     });
+
+    QUnit.testInActiveWindow('DataGrid should not focus command cell after edit canceling', function(assert) {
+        if(devices.real().deviceType !== 'desktop') {
+            assert.ok(true, 'test should not be run on mobile');
+            return;
+        }
+
+        // arrange, act
+        const dataGrid = createDataGrid({
+            editing: {
+                mode: 'row',
+                allowUpdating: true
+            },
+            dataSource: [{ field: 1 }],
+            loadingTimeout: undefined
+        });
+
+        // act
+        dataGrid.editRow(0);
+        this.clock.tick();
+        dataGrid.focus(dataGrid.getCellElement(0, 1));
+
+        // assert
+        const $focused = $(':focus');
+        assert.ok($focused.length, 'focused element');
+        assert.ok($focused.closest('.dx-command-edit').length, 'focused element is command cell child');
+
+        // act
+        $('.dx-link-cancel').trigger('dxpointerdown').trigger('click');
+        this.clock.tick();
+
+        // assert
+        const $commandCell = $(dataGrid.getCellElement(0, 1));
+        assert.ok($commandCell.is(':focus'), 'command cell is focused');
+        assert.notOk($commandCell.hasClass('dx-focused'), 'no dx-focused class');
+    });
 });
 
 QUnit.module('Column Resizing', baseModuleConfig, () => {
@@ -3817,5 +3880,37 @@ QUnit.module('Column Resizing', baseModuleConfig, () => {
 
         // assert
         assert.ok(isLoseFocusCalled, 'loseFocus is called');
+    });
+
+    QUnit.testInActiveWindow('Scroll position should not be changed after click on button element (T945907)', function(assert) {
+        if(devices.real().deviceType !== 'desktop') {
+            assert.ok(true, 'keyboard navigation is disabled for not desktop devices');
+            return;
+        }
+
+        // arrange
+        const dataGrid = createDataGrid({
+            height: 50,
+            scrolling: {
+                useNative: false
+            },
+            dataSource: [{ id: 1 }, { id: 2 }, { id: 3 }],
+            columns: [{
+                cellTemplate: function(_, options) {
+                    return $('<button>').attr('id', 'button' + options.data.id).text('button');
+                }
+            }],
+        });
+        this.clock.tick();
+
+        dataGrid.getScrollable().scrollTo({ y: 10 });
+        this.clock.tick();
+
+        // act
+        $('#button1').trigger('dxpointerdown');
+        this.clock.tick();
+
+        // assert
+        assert.equal(dataGrid.getScrollable().scrollTop(), 10, 'scroll top is not changed');
     });
 });

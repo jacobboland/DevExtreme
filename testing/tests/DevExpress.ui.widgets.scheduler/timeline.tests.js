@@ -542,7 +542,7 @@ QUnit.test('The part of long appointment should have right coordinates on curren
 
 });
 
-QUnit.test('The part of long appointment should have right coordinates on current week (T342192)', function(assert) {
+QUnit.test('The part of long appointment should have right coordinates on current week (T342192) №2', function(assert) {
     this.instance.option({
         currentDate: new Date(2015, 1, 23),
         firstDayOfWeek: 1,
@@ -559,7 +559,7 @@ QUnit.test('The part of long appointment should have right coordinates on curren
 
 });
 
-QUnit.test('The part of long appointment should have right coordinates on current week (T342192)', function(assert) {
+QUnit.test('The part of long appointment should have right coordinates on current week (T342192) №3', function(assert) {
     this.instance.option({
         currentDate: new Date(2015, 1, 23),
         firstDayOfWeek: 1,
@@ -999,7 +999,8 @@ QUnit.test('Date table cells shoud have right cellData, groupByDate = true', fun
         allDay: false,
         groups: {
             one: 1
-        }
+        },
+        groupIndex: 0,
     });
 
     assert.deepEqual($cells.eq(1).data('dxCellData'), {
@@ -1008,7 +1009,8 @@ QUnit.test('Date table cells shoud have right cellData, groupByDate = true', fun
         allDay: false,
         groups: {
             one: 2
-        }
+        },
+        groupIndex: 1,
     });
 
     assert.deepEqual($cells.eq(50).data('dxCellData'), {
@@ -1017,7 +1019,8 @@ QUnit.test('Date table cells shoud have right cellData, groupByDate = true', fun
         allDay: false,
         groups: {
             one: 1
-        }
+        },
+        groupIndex: 0,
     });
 
     assert.deepEqual($cells.eq(51).data('dxCellData'), {
@@ -1026,7 +1029,8 @@ QUnit.test('Date table cells shoud have right cellData, groupByDate = true', fun
         allDay: false,
         groups: {
             one: 2
-        }
+        },
+        groupIndex: 1,
     });
 
     assert.deepEqual($cells.eq(82).data('dxCellData'), {
@@ -1035,7 +1039,8 @@ QUnit.test('Date table cells shoud have right cellData, groupByDate = true', fun
         allDay: false,
         groups: {
             one: 1
-        }
+        },
+        groupIndex: 0,
     });
 
     assert.deepEqual($cells.eq(83).data('dxCellData'), {
@@ -1044,7 +1049,8 @@ QUnit.test('Date table cells shoud have right cellData, groupByDate = true', fun
         allDay: false,
         groups: {
             one: 2
-        }
+        },
+        groupIndex: 1,
     });
 });
 

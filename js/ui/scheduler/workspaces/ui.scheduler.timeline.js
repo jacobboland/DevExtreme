@@ -9,6 +9,8 @@ import tableCreatorModule from '../ui.scheduler.table_creator';
 const { tableCreator } = tableCreatorModule;
 import HorizontalShader from '../shaders/ui.scheduler.current_time_shader.horizontal';
 
+import timeZoneUtils from '../utils.timeZone';
+
 const TIMELINE_CLASS = 'dx-scheduler-timeline';
 const GROUP_TABLE_CLASS = 'dx-scheduler-group-table';
 
@@ -74,11 +76,28 @@ class SchedulerTimeline extends SchedulerWorkSpace {
         }
     }
 
-    _getDateByIndex(index) {
-        const resultDate = new Date(this._firstViewDate);
+    _getDateForHeaderText(index) {
+        const newFirstViewDate = timeZoneUtils.getDateWithoutTimezoneChange(this._firstViewDate);
+        return this._getDateByIndexCore(newFirstViewDate, index);
+    }
+
+    _getDateByIndexCore(date, index) {
+        const result = new Date(date);
         const dayIndex = Math.floor(index / this._getCellCountInDay());
-        resultDate.setTime(this._firstViewDate.getTime() + this._calculateCellIndex(0, index) * this._getInterval() + dayIndex * this._getHiddenInterval());
-        return resultDate;
+        result.setTime(date.getTime() + this._calculateCellIndex(0, index) * this._getInterval() + dayIndex * this._getHiddenInterval());
+
+        return result;
+    }
+
+    _getDateByIndex(index) {
+        const newFirstViewDate = timeZoneUtils.getDateWithoutTimezoneChange(this._firstViewDate);
+        const result = this._getDateByIndexCore(newFirstViewDate, index);
+
+        if(timeZoneUtils.isTimezoneChangeInDate(this._firstViewDate)) {
+            result.setDate(result.getDate() - 1);
+        }
+
+        return result;
     }
 
     _getFormat() {
@@ -163,7 +182,6 @@ class SchedulerTimeline extends SchedulerWorkSpace {
 
     _renderDateHeader() {
         const $headerRow = super._renderDateHeader();
-
         if(this._needRenderWeekHeader()) {
             const firstViewDate = new Date(this._firstViewDate);
             const $cells = [];
@@ -232,16 +250,30 @@ class SchedulerTimeline extends SchedulerWorkSpace {
     _setHorizontalGroupHeaderCellsHeight() { return noop(); }
 
     getIndicationCellCount() {
+        const timeDiff = this._getTimeDiff();
+        return this._calculateDurationInCells(timeDiff);
+    }
+
+    _getTimeDiff() {
         const today = this._getToday();
         const date = this._getIndicationFirstViewDate();
-        const hiddenInterval = this._getHiddenInterval();
-        const timeDiff = today.getTime() - date.getTime();
+        return today.getTime() - date.getTime();
+    }
 
-        const differenceInDays = Math.ceil(timeDiff / toMs('day')) - 1;
-        const duration = timeDiff - differenceInDays * hiddenInterval;
-        const cellCount = duration / this.getCellDuration();
+    _calculateDurationInCells(timeDiff) {
+        const today = this._getToday();
+        const differenceInDays = Math.floor(timeDiff / toMs('day'));
+        let duration = (timeDiff - differenceInDays * toMs('day') - this.option('startDayHour') * toMs('hour')) / this.getCellDuration();
 
-        return cellCount;
+        if(today.getHours() > this.option('endDayHour')) {
+            duration = this._getCellCountInDay();
+        }
+
+        if(duration < 0) {
+            duration = 0;
+        }
+        return differenceInDays * this._getCellCountInDay() + duration;
+
     }
 
     getIndicationWidth() {
@@ -283,7 +315,7 @@ class SchedulerTimeline extends SchedulerWorkSpace {
     _isCurrentTimeHeaderCell(headerIndex) {
         let result = false;
 
-        if(this.option('showCurrentTimeIndicator') && this._needRenderDateTimeIndicator()) {
+        if(this.isIndicationOnView()) {
             let date = this._getDateByIndex(headerIndex);
 
             const now = this._getToday();
@@ -392,7 +424,7 @@ class SchedulerTimeline extends SchedulerWorkSpace {
     }
 
     _getIndicationFirstViewDate() {
-        return new Date(this._firstViewDate);
+        return dateUtils.trimTime(new Date(this._firstViewDate));
     }
 
     _getIntervalBetween(currentDate, allDay) {
@@ -490,39 +522,8 @@ class SchedulerTimeline extends SchedulerWorkSpace {
         return result;
     }
 
-    needUpdateScrollPosition(hours, minutes, bounds, date) {
-        let isUpdateNeeded = false;
-
-        isUpdateNeeded = this._dateWithinBounds(bounds, date);
-
-        if(hours < bounds.left.hours || hours > bounds.right.hours) {
-            isUpdateNeeded = true;
-        }
-
-        if(hours === bounds.left.hours && minutes < bounds.left.minutes) {
-            isUpdateNeeded = true;
-        }
-
-        if(hours === bounds.right.hours && minutes > bounds.right.minutes) {
-            isUpdateNeeded = true;
-        }
-
-        return isUpdateNeeded;
-    }
-
     getIntervalDuration(allDay) {
         return this.getCellDuration();
-    }
-
-    _dateWithinBounds(bounds, date) {
-        const trimmedDate = dateUtils.trimTime(new Date(date));
-        let isUpdateNeeded = false;
-
-        if(trimmedDate < bounds.left.date || trimmedDate > bounds.right.date) {
-            isUpdateNeeded = true;
-        }
-
-        return isUpdateNeeded;
     }
 
     _supportCompactDropDownAppointments() {

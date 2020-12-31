@@ -1,5 +1,5 @@
 import $ from '../../core/renderer';
-import { isElementNode } from '../../core/dom_adapter';
+import domAdapter from '../../core/dom_adapter';
 import eventsEngine from '../../events/core/events_engine';
 import messageLocalization from '../../localization/message';
 import { name as clickEventName } from '../../events/click';
@@ -12,7 +12,7 @@ import { getPublicElement } from '../../core/element';
 import CheckBox from '../check_box';
 import HierarchicalCollectionWidget from '../hierarchical_collection/ui.hierarchical_collection_widget';
 import { addNamespace } from '../../events/utils/index';
-import { down as PointerDown } from '../../events/pointer';
+import pointerEvents from '../../events/pointer';
 import { name as dblclickEvent } from '../../events/double_click';
 import fx from '../../animation/fx';
 import Scrollable from '../scroll_view/ui.scrollable';
@@ -144,66 +144,41 @@ const TreeViewBase = HierarchicalCollectionWidget.inherit({
     },
 
     _getDefaultOptions: function() {
-        return extend(this.callBase(), {
+        const defaultOptions = extend(this.callBase(), {
             animationEnabled: true,
-
             dataStructure: 'tree',
-
             deferRendering: true,
-
             expandAllEnabled: false,
-
             hasItemsExpr: 'hasItems',
-
             selectNodesRecursive: true,
-
             expandNodesRecursive: true,
-
             showCheckBoxesMode: 'none',
-
             selectAllText: messageLocalization.format('dxList-selectAll'),
-
             onItemSelectionChanged: null,
-
-
             onItemExpanded: null,
-
             onItemCollapsed: null,
-
             scrollDirection: 'vertical',
-
             virtualModeEnabled: false,
-
             rootValue: 0,
-
             focusStateEnabled: false,
-
             selectionMode: 'multiple',
-
             expandEvent: 'dblclick',
-
             selectByClick: false,
-
             createChildren: null,
-
             onSelectAllValueChanged: null
-
 
             /**
             * @name dxTreeViewOptions.selectedItem
             * @hidden
             */
-
             /**
             * @name dxTreeViewOptions.selectedItems
             * @hidden
             */
-
             /**
             * @name dxTreeViewOptions.selectedItemKeys
             * @hidden
             */
-
             /**
             * @name dxTreeViewOptions.selectedIndex
             * @hidden
@@ -213,6 +188,12 @@ const TreeViewBase = HierarchicalCollectionWidget.inherit({
             * @inherits CollectionWidgetItem
             * @type object
             */
+        });
+
+        return extend(true, defaultOptions, {
+            integrationOptions: {
+                useDeferUpdateForTemplates: false
+            }
         });
     },
 
@@ -796,7 +777,7 @@ const TreeViewBase = HierarchicalCollectionWidget.inherit({
             return null;
         }
 
-        if(isElementNode(itemElement)) {
+        if(domAdapter.isElementNode(itemElement)) {
             return this._getNodeByElement(itemElement);
         }
 
@@ -1290,7 +1271,7 @@ const TreeViewBase = HierarchicalCollectionWidget.inherit({
         const clickSelector = '.' + this._itemClass();
         const pointerDownSelector = '.' + NODE_CLASS + ', .' + SELECT_ALL_ITEM_CLASS;
         const eventName = addNamespace(clickEventName, this.NAME);
-        const pointerDownEvent = addNamespace(PointerDown, this.NAME);
+        const pointerDownEvent = addNamespace(pointerEvents.down, this.NAME);
         const $itemContainer = this._itemContainer();
 
         const that = this;

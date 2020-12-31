@@ -1,7 +1,7 @@
 import { animation } from './ui.drawer.animation';
 import DrawerStrategy from './ui.drawer.rendering.strategy';
 import $ from '../../core/renderer';
-import translator from '../../animation/translator';
+import { move } from '../../animation/translator';
 import Overlay from '../overlay';
 import { ensureDefined } from '../../core/utils/common';
 import { extend } from '../../core/utils/extend';
@@ -43,10 +43,14 @@ class OverlapStrategy extends DrawerStrategy {
     _fixOverlayPosition($overlayContent) {
         // NOTE: overlay should be positioned in extended wrapper
         const position = ensureDefined(this._initialPosition, { left: 0, top: 0 });
-        translator.move($overlayContent, position);
+        move($overlayContent, position);
 
         if(this.getDrawerInstance().calcTargetPosition() === 'right') {
             $overlayContent.css('left', 'auto');
+        }
+        if(this.getDrawerInstance().calcTargetPosition() === 'bottom') {
+            $overlayContent.css('top', 'auto');
+            $overlayContent.css('bottom', '0px');
         }
     }
 
@@ -99,13 +103,14 @@ class OverlapStrategy extends DrawerStrategy {
         }
     }
 
-    onViewContentWrapperCreated($viewContentWrapper, panelPosition) {
-        this._setupContent($viewContentWrapper, panelPosition);
+    onPanelContentRendered() {
+        this._updateViewContentStyles();
     }
 
-    _setupContent($content, position) {
-        $content.css('padding' + camelize(position, true), this.getDrawerInstance().option('minSize'));
-        $content.css('transform', 'inherit');
+    _updateViewContentStyles() {
+        const drawer = this.getDrawerInstance();
+        $(drawer.viewContent()).css('padding' + camelize(drawer.calcTargetPosition(), true), drawer.option('minSize'));
+        $(drawer.viewContent()).css('transform', 'inherit');
     }
 
     _slidePositionRendering(config, _, animate) {
@@ -114,7 +119,7 @@ class OverlapStrategy extends DrawerStrategy {
         this._initialPosition = drawer.isHorizontalDirection() ? { left: config.panelOffset } : { top: config.panelOffset };
         const position = drawer.calcTargetPosition();
 
-        this._setupContent(config.$content, position, config.drawer);
+        this._updateViewContentStyles();
 
         if(animate) {
             const animationConfig = extend(config.defaultAnimationConfig, {
@@ -127,9 +132,9 @@ class OverlapStrategy extends DrawerStrategy {
             animation.moveTo(animationConfig);
         } else {
             if(drawer.isHorizontalDirection()) {
-                translator.move(config.$panel, { left: config.panelOffset });
+                move(config.$panel, { left: config.panelOffset });
             } else {
-                translator.move(config.$panel, { top: config.panelOffset });
+                move(config.$panel, { top: config.panelOffset });
             }
         }
     }
@@ -140,9 +145,9 @@ class OverlapStrategy extends DrawerStrategy {
         this._initialPosition = { left: 0 };
         const position = drawer.calcTargetPosition();
 
-        this._setupContent(config.$content, position);
+        this._updateViewContentStyles();
 
-        translator.move(config.$panelOverlayContent, { left: 0 });
+        move(config.$panelOverlayContent, { left: 0 });
 
         if(animate) {
             const animationConfig = extend(config.defaultAnimationConfig, {

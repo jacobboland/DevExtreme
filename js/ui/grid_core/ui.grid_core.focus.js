@@ -1,11 +1,10 @@
 import $ from '../../core/renderer';
 import core from './ui.grid_core.modules';
 import { each } from '../../core/utils/iterator';
-import { combineFilters } from './ui.grid_core.utils';
+import gridCoreUtils from './ui.grid_core.utils';
 import { equalByValue } from '../../core/utils/common';
 import { isDefined, isBoolean } from '../../core/utils/type';
 import { Deferred, when } from '../../core/utils/deferred';
-import { getIndexByKey } from './ui.grid_core.utils';
 
 const ROW_FOCUSED_CLASS = 'dx-row-focused';
 const FOCUSED_ROW_SELECTOR = '.dx-row' + '.' + ROW_FOCUSED_CLASS;
@@ -83,7 +82,7 @@ const FocusController = core.ViewController.inherit((function() {
                     const rowIndex = Math.min(visibleIndex, lastItemIndex);
                     const focusedRowKey = dataController.getKeyByRowIndex(rowIndex);
 
-                    if(focusedRowKey !== undefined && !this.isRowFocused(focusedRowKey)) {
+                    if(isDefined(focusedRowKey) && !this.isRowFocused(focusedRowKey)) {
                         this.option('focusedRowKey', focusedRowKey);
                     }
                 }
@@ -122,14 +121,14 @@ const FocusController = core.ViewController.inherit((function() {
                 const rowIndex = Math.min(index - dataController.getRowIndexOffset(), dataController.items().length - 1);
                 const focusedRowKey = dataController.getKeyByRowIndex(rowIndex);
 
-                if(focusedRowKey !== undefined && !this.isRowFocused(focusedRowKey)) {
+                if(isDefined(focusedRowKey) && !this.isRowFocused(focusedRowKey)) {
                     this.option('focusedRowKey', focusedRowKey);
                 }
             }
         },
 
         _focusRowByKey: function(key) {
-            if(key === undefined) {
+            if(!isDefined(key)) {
                 this._resetFocusedRow();
             } else {
                 this._navigateToRow(key, true);
@@ -137,13 +136,18 @@ const FocusController = core.ViewController.inherit((function() {
         },
 
         _resetFocusedRow: function() {
-            if(this.option('focusedRowKey') === undefined && this.option('focusedRowIndex') < 0) {
+            const focusedRowKey = this.option('focusedRowKey');
+            const isFocusedRowKeyDefined = isDefined(focusedRowKey);
+
+            if(!isFocusedRowKeyDefined && this.option('focusedRowIndex') < 0) {
                 return;
             }
 
             const keyboardController = this.getController('keyboardNavigation');
 
-            this.option('focusedRowKey', undefined);
+            if(isFocusedRowKeyDefined) {
+                this.option('focusedRowKey', undefined);
+            }
             keyboardController.setFocusedRowIndex(-1);
             this.option('focusedRowIndex', -1);
             this.getController('data').updateItems({
@@ -232,7 +236,7 @@ const FocusController = core.ViewController.inherit((function() {
             const that = this;
             const dataController = this.getController('data');
             const rowsScrollController = dataController._rowsScrollController;
-            const rowIndex = getIndexByKey(key, dataController.items(true));
+            const rowIndex = gridCoreUtils.getIndexByKey(key, dataController.items(true));
             const scrollable = that.getView('rowsView').getScrollable();
 
             if(rowsScrollController && scrollable && rowIndex >= 0) {
@@ -285,7 +289,7 @@ const FocusController = core.ViewController.inherit((function() {
             const keyboardController = this.getController('keyboardNavigation');
             const dataController = this.getController('data');
 
-            if(focusedRowKey !== undefined) {
+            if(isDefined(focusedRowKey)) {
                 const visibleRowIndex = dataController.getRowIndexByKey(focusedRowKey);
                 if(visibleRowIndex >= 0) {
                     if(keyboardController._isVirtualScrolling()) {
@@ -308,7 +312,7 @@ const FocusController = core.ViewController.inherit((function() {
         isRowFocused: function(key) {
             const focusedRowKey = this.option('focusedRowKey');
 
-            if(focusedRowKey !== undefined) {
+            if(isDefined(focusedRowKey)) {
                 return equalByValue(key, this.option('focusedRowKey'));
             }
         },
@@ -423,9 +427,13 @@ export default {
                 },
 
                 setFocusedRowIndex: function(rowIndex) {
+                    const dataController = this.getController('data');
+
                     this.callBase(rowIndex);
 
-                    const visibleRow = this.getController('data').getVisibleRows()[rowIndex];
+                    const visibleRowIndex = rowIndex - dataController.getRowIndexOffset();
+                    const visibleRow = dataController.getVisibleRows()[visibleRowIndex];
+
                     if(!visibleRow || !visibleRow.isNewRow) {
                         this.option('focusedRowIndex', rowIndex);
                     }
@@ -549,7 +557,7 @@ export default {
                     const focusedRowKey = this.option('focusedRowKey');
                     const isAutoNavigate = focusController.isAutoNavigateToFocusedRow();
 
-                    if(reload && !fullReload && focusedRowKey !== undefined) {
+                    if(reload && !fullReload && isDefined(focusedRowKey)) {
                         focusController._navigateToRow(focusedRowKey, true).done(function(focusedRowIndex) {
                             if(focusedRowIndex < 0) {
                                 focusController._focusRowByIndex();
@@ -620,7 +628,7 @@ export default {
                 },
                 _concatWithCombinedFilter: function(filter, groupFilter) {
                     const combinedFilter = this.getCombinedFilter();
-                    return combineFilters([filter, combinedFilter, groupFilter]);
+                    return gridCoreUtils.combineFilters([filter, combinedFilter, groupFilter]);
                 },
                 _generateBooleanFilter: function(selector, value, sortInfo) {
                     let result;
@@ -774,11 +782,13 @@ export default {
                         columnIndex += columnsController.getColumnIndexOffset();
                         this.getController('keyboardNavigation').setFocusedCellPosition(rowIndex, columnIndex);
 
-                        const dataSource = dataController.dataSource();
-                        const operationTypes = dataSource && dataSource.operationTypes();
-                        if(operationTypes && !operationTypes.paging && !dataController.isPagingByRendering()) {
-                            this.resizeCompleted.remove(this._scrollToFocusOnResize);
-                            this.resizeCompleted.add(this._scrollToFocusOnResize);
+                        if(this.getController('focus').isAutoNavigateToFocusedRow()) {
+                            const dataSource = dataController.dataSource();
+                            const operationTypes = dataSource && dataSource.operationTypes();
+                            if(operationTypes && !operationTypes.paging && !dataController.isPagingByRendering()) {
+                                this.resizeCompleted.remove(this._scrollToFocusOnResize);
+                                this.resizeCompleted.add(this._scrollToFocusOnResize);
+                            }
                         }
                     }
                 },

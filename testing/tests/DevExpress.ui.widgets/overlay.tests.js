@@ -9,8 +9,7 @@ import resizeCallbacks from 'core/utils/resize_callbacks';
 import { isRenderer } from 'core/utils/type';
 import { value as viewPort } from 'core/utils/view_port';
 import eventsEngine from 'events/core/events_engine';
-import { triggerHidingEvent, triggerShownEvent } from 'events/visibility_change';
-import visibilityChange from 'events/visibility_change';
+import visibilityChange, { triggerHidingEvent, triggerShownEvent } from 'events/visibility_change';
 import $ from 'jquery';
 import { hideCallback as hideTopOverlayCallback } from 'mobile/hide_callback';
 import Overlay from 'ui/overlay';
@@ -938,6 +937,22 @@ testModule('position', moduleConfig, () => {
         }).dxOverlay('instance');
 
         assert.strictEqual(instance._position.of, 'body');
+    });
+
+    test('overlay wrapper should have correct dimensions even when there is "target" property in window', function(assert) {
+        $('<div>')
+            .css({ width: 100, height: 100 })
+            .attr('id', 'target')
+            .appendTo('#qunit-fixture');
+
+        $('#overlay').dxOverlay({
+            visible: true
+        });
+
+        const $overlayWrapper = $(`.${OVERLAY_WRAPPER_CLASS}`);
+
+        assert.roughEqual($overlayWrapper.width(), $(window).width(), 1.01, 'overlay wrapper width is correct');
+        assert.roughEqual($overlayWrapper.height(), $(window).height(), 1.01, 'overlay wrapper height is correct');
     });
 });
 
@@ -2161,6 +2176,42 @@ testModule('close on target scroll', moduleConfig, () => {
 
 
 testModule('container', moduleConfig, () => {
+    test('wrapper should have width and height css attributes equal to container width and height', function(assert) {
+        const $container = $('#customTargetContainer');
+        $container.css({
+            width: 100,
+            height: 100
+        });
+
+        const overlay = $('#overlay').dxOverlay({
+            container: $container,
+            visible: true
+        }).dxOverlay('instance');
+
+        const wrapperElement = overlay.$content().parent().get(0);
+
+        assert.strictEqual(wrapperElement.style.width, '100px', 'width is correct');
+        assert.strictEqual(wrapperElement.style.height, '100px', 'height is correct');
+    });
+
+    test('wrapper width and height should be restored after container option value changed to window (T937118)', function(assert) {
+        const $container = $('#customTargetContainer');
+        $container.css({
+            width: 100,
+            height: 100
+        });
+
+        const overlay = $('#overlay').dxOverlay({
+            container: $container,
+            visible: true
+        }).dxOverlay('instance');
+
+        const wrapperElement = overlay.$content().parent().get(0);
+        overlay.option('container', null);
+        assert.strictEqual(wrapperElement.style.width, '', 'width is restored after container option value changed to window');
+        assert.strictEqual(wrapperElement.style.height, '', 'height is restored after container option value changed to window');
+    });
+
     test('content should not be moved to container', function(assert) {
         const overlay = $('#overlay').dxOverlay({
             container: '#customTargetContainer'

@@ -22,7 +22,7 @@ const stubLayersEnvironment = $.extend({}, commons.environment, {
         commons.environment.beforeEach.apply(this, arguments);
         this.layerCollection.stub('items').returns([]);
         this.tracker.on = sinon.stub().returns(noop);
-        sinon.stub(plaqueModule, 'Plaque').returns({ draw: sinon.stub(), hitTest: sinon.stub() });
+        sinon.stub(plaqueModule, 'Plaque').returns({ draw: sinon.stub(), hitTest: sinon.stub(), clear: sinon.stub() });
     },
     afterEach: function() {
         plaqueModule.Plaque.restore();
@@ -280,9 +280,9 @@ QUnit.test('GestureHandler', function(assert) {
 QUnit.test('LayoutControl', function(assert) {
     const spy = sinon.spy(layoutModule, 'LayoutControl');
 
-    this.createMap({ layers: {} });
+    const map = this.createMap({ layers: {} });
 
-    assert.deepEqual(spy.lastCall.args, [], 'created');
+    assert.deepEqual(spy.lastCall.args, [map], 'created');
     assert.ok(this.layoutControl.suspend.getCall(0).calledBefore(this.controlBar.setOptions.lastCall), 'suspend');
 
     assert.ok(this.layoutControl.resume.getCall(0).calledBefore(this.layerCollection.setOptions.lastCall), 'resume');
@@ -516,6 +516,7 @@ QUnit.test('Annotation should be re-render after update size', function(assert) 
 
     assert.equal(plaqueModule.Plaque.callCount, 2);
     assert.equal(plaqueModule.Plaque.returnValues[0].draw.callCount, 2);
+    assert.equal(plaqueModule.Plaque.returnValues[0].clear.callCount, 1);
 });
 
 QUnit.module('Map - API', stubLayersEnvironment);
@@ -818,6 +819,7 @@ QUnit.test('`Annotations` option', function(assert) {
 
     assert.deepEqual(plaqueModule.Plaque.lastCall.args[0], { type: 'text', text: 'updates annotation' });
     assert.equal(plaqueModule.Plaque.returnValues[0].draw.callCount, 2);
+    assert.equal(plaqueModule.Plaque.returnValues[0].clear.callCount, 1);
 });
 
 QUnit.module('Map - preventing option merging', stubLayersEnvironment);

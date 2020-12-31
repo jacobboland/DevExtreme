@@ -61,7 +61,7 @@ export interface dxGanttOptions extends WidgetOptions<dxGantt> {
      * @prevFileNamespace DevExpress.ui
      * @public
      */
-    editing?: { allowDependencyAdding?: boolean, allowDependencyDeleting?: boolean, allowResourceAdding?: boolean, allowResourceDeleting?: boolean, allowResourceUpdating?: boolean, allowTaskAdding?: boolean, allowTaskDeleting?: boolean, allowTaskUpdating?: boolean, enabled?: boolean };
+    editing?: { allowDependencyAdding?: boolean, allowDependencyDeleting?: boolean, allowResourceAdding?: boolean, allowResourceDeleting?: boolean, allowResourceUpdating?: boolean, allowTaskResourceUpdating?: boolean, allowTaskAdding?: boolean, allowTaskDeleting?: boolean, allowTaskUpdating?: boolean, enabled?: boolean };
     /**
      * @docid dxGanttOptions.validation
      * @type Object
@@ -511,7 +511,7 @@ export default class dxGantt extends Widget {
      * @prevFileNamespace DevExpress.ui
      * @public
      */
-    assignResourceToTask(resourceKey, taskKey)
+    assignResourceToTask(resourceKey: any, taskKey: any): void;
     /**
      * @docid dxGanttMethods.unassignResourceFromTask
      * @publicName unassignResourceFromTask(resourceKey, taskKey)
@@ -520,7 +520,55 @@ export default class dxGantt extends Widget {
      * @prevFileNamespace DevExpress.ui
      * @public
      */
-    unassignResourceFromTask(resourceKey, taskKey)
+    unassignResourceFromTask(resourceKey: any, taskKey: any): void;
+    /**
+     * @docid dxGanttMethods.getTaskResources
+     * @publicName getTaskResources(key)
+     * @param1 key:object
+     * @return Array<object>
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    getTaskResources(key: any): Array<any>;
+    /**
+     * @docid dxGanttMethods.getVisibleTaskKeys
+     * @publicName getVisibleTaskKeys()     
+     * @return Array<object>
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    getVisibleTaskKeys(): Array<any>;
+    /**
+     * @docid dxGanttMethods.getVisibleDependencyKeys
+     * @publicName getVisibleDependencyKeys()     
+     * @return Array<object>
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    getVisibleDependencyKeys(): Array<any>;
+    /**
+     * @docid dxGanttMethods.getVisibleResourceKeys
+     * @publicName getVisibleResourceKeys()     
+     * @return Array<object>
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    getVisibleResourceKeys(): Array<any>;
+    /**
+     * @docid dxGanttMethods.getVisibleResourceAssignmentKeys
+     * @publicName getVisibleResourceAssignmentKeys()     
+     * @return Array<object>
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    getVisibleResourceAssignmentKeys(): Array<any>;
+    /**
+     * @docid dxGanttMethods.updateDimensions
+     * @publicName updateDimensions()     
+     * @prevFileNamespace DevExpress.ui
+     * @public
+     */
+    updateDimensions(): void;
 }
 
 export interface dxGanttToolbar {

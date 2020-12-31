@@ -3,13 +3,13 @@ import { getWindow } from '../../core/utils/window';
 const window = getWindow();
 import List from '../list';
 import DateBoxStrategy from './ui.date_box.strategy';
-import { noop } from '../../core/utils/common';
-import { ensureDefined } from '../../core/utils/common';
+import { noop, ensureDefined } from '../../core/utils/common';
 import { isDate } from '../../core/utils/type';
 import { extend } from '../../core/utils/extend';
 import dateUtils from './ui.date_utils';
 import dateLocalization from '../../localization/date';
 import dateSerialization from '../../core/utils/date_serialization';
+import { getSizeValue } from '../drop_down_editor/utils';
 
 const DATE_FORMAT = 'date';
 
@@ -58,7 +58,7 @@ const ListStrategy = DateBoxStrategy.inherit({
     },
 
     popupShowingHandler: function() {
-        this._dimensionChanged();
+        this.dateBox._dimensionChanged();
     },
 
     _renderWidget: function() {
@@ -250,18 +250,15 @@ const ListStrategy = DateBoxStrategy.inherit({
         return this._widget;
     },
 
-    _dimensionChanged: function() {
-        if(this._getPopup()) {
-            this._updatePopupHeight();
-        }
-    },
-
     _updatePopupHeight: function() {
-        this.dateBox._setPopupOption('height', 'auto');
+        const dropDownOptionsHeight = getSizeValue(this.dateBox.option('dropDownOptions.height'));
+        if(dropDownOptionsHeight === undefined || dropDownOptionsHeight === 'auto') {
+            this.dateBox._setPopupOption('height', 'auto');
+            const popupHeight = this._widget.$element().outerHeight();
+            const maxHeight = $(window).height() * 0.45;
+            this.dateBox._setPopupOption('height', Math.min(popupHeight, maxHeight));
+        }
 
-        const popupHeight = this._widget.$element().outerHeight();
-        const maxHeight = $(window).height() * 0.45;
-        this.dateBox._setPopupOption('height', Math.min(popupHeight, maxHeight));
         this.dateBox._timeList && this.dateBox._timeList.updateDimensions();
     },
 

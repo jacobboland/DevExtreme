@@ -25,6 +25,11 @@ function coreAnnotation(options, contentTemplate) {
         draw: function(widget, group) {
             const annotationGroup = widget._renderer.g().append(group)
                 .css(patchFontOptions(options.font));
+
+            if(this.plaque) {
+                this.plaque.clear();
+            }
+
             this.plaque = new Plaque(
                 extend(true, {}, options, { cornerRadius: (options.border || {}).cornerRadius }),
                 widget, annotationGroup, contentTemplate,
@@ -50,11 +55,14 @@ function coreAnnotation(options, contentTemplate) {
             return this.plaque.hitTest(x, y);
         },
         showTooltip(tooltip, { x, y }) {
-            if(tooltip.annotation !== this) {
-                tooltip.setTemplate(this.options.tooltipTemplate);
-                if(tooltip.show(this.options, { x, y }, { target: this.options }, this.options.customizeTooltip)) {
-                    tooltip.annotation = this;
-                }
+            const that = this;
+            const options = that.options;
+            if(tooltip.annotation !== that) {
+                tooltip.setTemplate(options.tooltipTemplate);
+                const callback = (result) => {
+                    result && (tooltip.annotation = that);
+                };
+                callback(tooltip.show(options, { x, y }, { target: options }, options.customizeTooltip, callback));
             } else {
                 tooltip.move(x, y);
             }
@@ -433,6 +441,10 @@ const corePlugin = {
             hideTooltip() {
                 this.tooltip.annotation = null;
                 this.tooltip.hide();
+            },
+            clearItems() {
+                this.items.forEach(i => i.plaque.clear());
+                this.items = [];
             }
         };
 
@@ -467,7 +479,7 @@ const corePlugin = {
     },
     members: {
         _buildAnnotations() {
-            this._annotations.items = [];
+            this._annotations.clearItems();
 
             const items = this._getOption('annotations', true);
             if(!items?.length) {

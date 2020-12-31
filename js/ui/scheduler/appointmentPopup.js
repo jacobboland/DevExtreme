@@ -4,11 +4,10 @@ import dateUtils from '../../core/utils/date';
 import { Deferred, when } from '../../core/utils/deferred';
 import { extend } from '../../core/utils/extend';
 import { each } from '../../core/utils/iterator';
-import { isDefined } from '../../core/utils/type';
+import { isDefined, isEmptyObject } from '../../core/utils/type';
 import { getWindow, hasWindow } from '../../core/utils/window';
 import { triggerResizeEvent } from '../../events/visibility_change';
 import messageLocalization from '../../localization/message';
-import { isEmptyObject } from '../../core/utils/type';
 import Popup from '../popup';
 import { AppointmentForm } from './ui.scheduler.appointment_form';
 import { hide as hideLoading, show as showLoading } from './ui.loading';
@@ -27,6 +26,8 @@ const APPOINTMENT_POPUP_WIDTH_MOBILE = 350;
 
 const TOOLBAR_ITEM_AFTER_LOCATION = 'after';
 const TOOLBAR_ITEM_BEFORE_LOCATION = 'before';
+
+const DAY_IN_MS = toMs('day');
 
 export default class AppointmentPopup {
     constructor(scheduler) {
@@ -141,9 +142,9 @@ export default class AppointmentPopup {
         return formElement;
     }
 
-    _createAppointmentFormData(appointmentData) {
-        const recurrenceRule = this.scheduler.fire('getField', 'recurrenceRule', appointmentData);
-        const result = extend(true, { repeat: !!recurrenceRule }, appointmentData);
+    _createAppointmentFormData(rawAppointment) {
+        const appointment = this._createAppointmentAdapter(rawAppointment);
+        const result = extend(true, { repeat: !!appointment.recurrenceRule }, rawAppointment);
         each(this.scheduler._resourcesManager.getResourcesFromItem(result, true) || {}, (name, value) => result[name] = value);
 
         return result;
@@ -153,9 +154,9 @@ export default class AppointmentPopup {
         const { expr } = this.scheduler._dataAccessors;
         const resources = this.scheduler.option('resources');
         const allowTimeZoneEditing = this._getAllowTimeZoneEditing();
-        const appointmentData = this.state.appointment.data;
-        const formData = this._createAppointmentFormData(appointmentData);
-        const readOnly = this._isReadOnly(appointmentData);
+        const rawAppointment = this.state.appointment.data;
+        const formData = this._createAppointmentFormData(rawAppointment);
+        const readOnly = this._isReadOnly(rawAppointment);
 
         AppointmentForm.prepareAppointmentFormEditors(
             expr,
@@ -184,16 +185,21 @@ export default class AppointmentPopup {
         return scheduler.option('editing.allowTimeZoneEditing') || scheduler.option('editing.allowEditingTimeZones');
     }
 
-    _isReadOnly(data) {
-        if(data && data.disabled) {
+    _isReadOnly(rawAppointment) {
+        const adapter = this.scheduler.createAppointmentAdapter(rawAppointment);
+        if(rawAppointment && adapter.disabled) {
             return true;
         }
         return this.scheduler._editAppointmentData ? !this.scheduler._editing.allowUpdating : false;
     }
 
+    _createAppointmentAdapter(rawAppointment) {
+        return this.scheduler.createAppointmentAdapter(rawAppointment);
+    }
+
     _updateForm() {
         const { data } = this.state.appointment;
-        const adapter = this.scheduler.createAppointmentAdapter(data);
+        const adapter = this._createAppointmentAdapter(data);
 
         const allDay = adapter.allDay;
         const startDate = adapter.startDate && adapter.calculateStartDate('toAppointment');
@@ -202,7 +208,18 @@ export default class AppointmentPopup {
         this.state.appointment.isEmptyText = data === undefined || adapter.text === undefined;
         this.state.appointment.isEmptyDescription = data === undefined || adapter.description === undefined;
 
-        const formData = extend({ text: '', description: '', recurrenceRule: '' }, this._createAppointmentFormData(data));
+        const appointment = this._createAppointmentAdapter(this._createAppointmentFormData(data));
+        if(appointment.text === undefined) {
+            appointment.text = '';
+        }
+        if(appointment.description === undefined) {
+            appointment.description = '';
+        }
+        if(appointment.recurrenceRule === undefined) {
+            appointment.recurrenceRule = '';
+        }
+
+        const formData = appointment.source();
 
         if(startDate) {
             this.scheduler.fire('setField', 'startDate', formData, startDate);
@@ -355,8 +372,20 @@ export default class AppointmentPopup {
         if(this._tryLockSaveChanges()) {
             when(this.saveChanges(true)).done(() => {
                 if(this.state.lastEditData) {
-                    const startDate = this.scheduler.fire('getField', 'startDate', this.state.lastEditData);
-                    this.scheduler._workSpace.updateScrollPosition(startDate);
+                    const adapter = this.scheduler.createAppointmentAdapter(this.state.lastEditData);
+
+                    const { startDate, endDate, allDay } = adapter;
+
+                    const startTime = startDate.getTime();
+                    const endTime = endDate.getTime();
+
+                    const inAllDayRow = allDay || (endTime - startTime) >= DAY_IN_MS;
+
+                    this.scheduler._workSpace.updateScrollPosition(
+                        startDate,
+                        this.scheduler._resourcesManager.getResourcesFromItem(this.state.lastEditData, true),
+                        inAllDayRow,
+                    );
                     this.state.lastEditData = null;
                 }
 

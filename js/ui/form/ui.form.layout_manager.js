@@ -5,23 +5,23 @@ import { default as FormItemsRunTimeInfo } from './ui.form.items_runtime_info';
 import registerComponent from '../../core/component_registrator';
 import { isDefined, isEmptyObject, isFunction, isObject, type } from '../../core/utils/type';
 import { getPublicElement } from '../../core/element';
-import { isWrapped, isWritableWrapped, unwrap } from '../../core/utils/variable_wrapper';
+import variableWrapper from '../../core/utils/variable_wrapper';
 import { getCurrentScreenFactor, hasWindow } from '../../core/utils/window';
-import stringUtils from '../../core/utils/string';
+import { format } from '../../core/utils/string';
 import { each } from '../../core/utils/iterator';
 import { extend } from '../../core/utils/extend';
 import { inArray, normalizeIndexes } from '../../core/utils/array';
-import dataUtils from '../../core/utils/data';
+import { compileGetter } from '../../core/utils/data';
 import removeEvent from '../../core/remove_event';
 import { name as clickEventName } from '../../events/click';
 import errors from '../widget/ui.errors';
 import messageLocalization from '../../localization/message';
 import { styleProp } from '../../core/utils/style';
-import inflector from '../../core/utils/inflector';
+import { captionize } from '../../core/utils/inflector';
 import Widget from '../widget/ui.widget';
 import Validator from '../validator';
 import ResponsiveBox from '../responsive_box';
-import themes from '../themes';
+import { isMaterial } from '../themes';
 import {
     FIELD_ITEM_CLASS,
     FLEX_LAYOUT_CLASS,
@@ -44,7 +44,8 @@ import {
     FIELD_ITEM_CONTENT_CLASS,
     FIELD_EMPTY_ITEM_CLASS,
     FIELD_BUTTON_ITEM_CLASS,
-    SINGLE_COLUMN_ITEM_CONTENT } from './constants';
+    SINGLE_COLUMN_ITEM_CONTENT,
+    ROOT_SIMPLE_ITEM_CLASS } from './constants';
 
 import '../text_box';
 import '../number_box';
@@ -163,9 +164,9 @@ const LayoutManager = Widget.inherit({
         const layoutData = this.option('layoutData');
         let newValue = value;
 
-        if(!isWrapped(layoutData[dataField]) && isDefined(dataField)) {
+        if(!variableWrapper.isWrapped(layoutData[dataField]) && isDefined(dataField)) {
             this.option('layoutData.' + dataField, newValue);
-        } else if(isWritableWrapped(layoutData[dataField])) {
+        } else if(variableWrapper.isWritableWrapped(layoutData[dataField])) {
             newValue = isFunction(newValue) ? newValue() : newValue;
 
             layoutData[dataField](newValue);
@@ -194,7 +195,7 @@ const LayoutManager = Widget.inherit({
 
                     customizeItem && customizeItem(item);
 
-                    if(isObject(item) && unwrap(item.visible) !== false) {
+                    if(isObject(item) && variableWrapper.unwrap(item.visible) !== false) {
                         processedItems.push(item);
                     }
                 }
@@ -226,7 +227,7 @@ const LayoutManager = Widget.inherit({
                 that._itemWatchers.push(
                     watch(
                         function() {
-                            return unwrap(item.visible);
+                            return variableWrapper.unwrap(item.visible);
                         },
                         function() {
                             that._updateItems(that.option('layoutData'));
@@ -256,7 +257,7 @@ const LayoutManager = Widget.inherit({
         const itemField = item.dataField || item;
         const itemData = this._getDataByField(itemField);
 
-        return !(isFunction(itemData) && !isWrapped(itemData));
+        return !(isFunction(itemData) && !variableWrapper.isWrapped(itemData));
     },
 
     _processItem: function(item) {
@@ -434,6 +435,10 @@ const LayoutManager = Widget.inherit({
                 }
                 if(e.location.col === 0) {
                     $fieldItem.addClass(LAYOUT_MANAGER_FIRST_COL_CLASS);
+                }
+
+                if(item.itemType === SIMPLE_ITEM_TYPE && that.option('isRoot')) {
+                    $itemElement.addClass(ROOT_SIMPLE_ITEM_CLASS);
                 }
                 const isLastColumn = (e.location.col === colCount - 1) || (e.location.col + e.location.colspan === colCount);
                 const rowsCount = that._getRowsCount();
@@ -729,7 +734,7 @@ const LayoutManager = Widget.inherit({
         }
 
         if(!labelOptions.text && item.dataField) {
-            labelOptions.text = inflector.captionize(item.dataField);
+            labelOptions.text = captionize(item.dataField);
         }
 
         if(labelOptions.text) {
@@ -866,7 +871,7 @@ const LayoutManager = Widget.inherit({
         const isItemHaveCustomLabel = item.label && item.label.text;
         const itemName = isItemHaveCustomLabel ? null : this._getName(item);
 
-        return isItemHaveCustomLabel ? item.label.text : itemName && inflector.captionize(itemName);
+        return isItemHaveCustomLabel ? item.label.text : itemName && captionize(itemName);
     },
 
     _prepareValidationRules: function(userValidationRules, isItemRequired, itemType, itemName) {
@@ -877,7 +882,7 @@ const LayoutManager = Widget.inherit({
             if(userValidationRules) {
                 validationRules = userValidationRules;
             } else {
-                const requiredMessage = stringUtils.format(this.option('requiredMessage'), itemName || '');
+                const requiredMessage = format(this.option('requiredMessage'), itemName || '');
 
                 validationRules = isItemRequired ? [{ type: 'required', message: requiredMessage }] : null;
             }
@@ -932,7 +937,7 @@ const LayoutManager = Widget.inherit({
                 editorInstance.setAria('labelledby', renderOptions.labelID);
                 editorInstance.setAria('required', renderOptions.isRequired);
 
-                if(themes.isMaterial()) {
+                if(isMaterial()) {
                     that._addWrapperInvalidClass(editorInstance);
                 }
 
@@ -1149,7 +1154,7 @@ const LayoutManager = Widget.inherit({
                                 const dataField = itemRunTimeInfo.item.dataField;
 
                                 if(dataField && isDefined(itemRunTimeInfo.widgetInstance)) {
-                                    const valueGetter = dataUtils.compileGetter(dataField);
+                                    const valueGetter = compileGetter(dataField);
                                     const dataValue = valueGetter(args.value);
 
                                     if(dataValue !== undefined || this._isCheckboxUndefinedStateEnabled(itemRunTimeInfo.item)) {

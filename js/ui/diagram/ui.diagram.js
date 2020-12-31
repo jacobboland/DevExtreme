@@ -4,7 +4,7 @@ import LoadIndicator from '../load_indicator';
 import registerComponent from '../../core/component_registrator';
 import { extend } from '../../core/utils/extend';
 import { isFunction } from '../../core/utils/type';
-import dataCoreUtils from '../../core/utils/data';
+import { compileSetter, compileGetter } from '../../core/utils/data';
 import positionUtils from '../../animation/position';
 import resizeCallbacks from '../../core/utils/resize_callbacks';
 import { getDiagram } from './diagram.importer';
@@ -22,7 +22,7 @@ import DiagramMainToolbar from './ui.diagram.main_toolbar';
 import DiagramHistoryToolbar from './ui.diagram.history_toolbar';
 import DiagramViewToolbar from './ui.diagram.view_toolbar';
 import DiagramPropertiesToolbar from './ui.diagram.properties_toolbar';
-import { DiagramContextMenuWrapper } from './ui.diagram.context_menu';
+import diagramContextMenuModule from './ui.diagram.context_menu';
 import DiagramContextToolbox from './ui.diagram.context_toolbox';
 import DiagramDialog from './ui.diagram.dialogs';
 import DiagramScrollView from './ui.diagram.scroll_view';
@@ -199,13 +199,25 @@ class Diagram extends Widget {
         }
         return this._isMobileScreenSize;
     }
-    _diagramCaptureFocus() {
+    _captureFocus() {
         if(this._diagramInstance) {
             this._diagramInstance.captureFocus();
         }
     }
+    _captureFocusOnTimeout() {
+        this._captureFocusTimeout = setTimeout(() => {
+            this._captureFocus();
+            delete this._captureFocusTimeout;
+        }, 100);
+    }
+    _killCaptureFocusTimeout() {
+        if(this._captureFocusTimeout) {
+            clearTimeout(this._captureFocusTimeout);
+            delete this._captureFocusTimeout;
+        }
+    }
     notifyBarCommandExecuted() {
-        this._diagramCaptureFocus();
+        this._captureFocusOnTimeout();
     }
     _registerToolbar(component) {
         this._registerBar(component);
@@ -361,7 +373,7 @@ class Diagram extends Widget {
             },
             onVisibilityChanged: (e) => {
                 if(!e.visible && !this._textInputStarted) {
-                    this._diagramCaptureFocus();
+                    this._captureFocus();
                 }
 
                 if(!isServerSide) {
@@ -513,7 +525,7 @@ class Diagram extends Widget {
             },
             onVisibilityChanged: (e) => {
                 if(!e.visible && !this._textInputStarted) {
-                    this._diagramCaptureFocus();
+                    this._captureFocus();
                 }
             },
             onSelectedGroupChanged: ({ component }) => this._updatePropertiesPanelGroupBars(component),
@@ -536,21 +548,12 @@ class Diagram extends Widget {
         });
     }
     _onPanelPointerUp() {
-        this._captureFocusTimeout = setTimeout(() => {
-            this._diagramCaptureFocus();
-            delete this._captureFocusTimeout;
-        }, 100);
-    }
-    _killCaptureFocusTimeout() {
-        if(this._captureFocusTimeout) {
-            clearTimeout(this._captureFocusTimeout);
-            delete this._captureFocusTimeout;
-        }
+        this._captureFocusOnTimeout();
     }
     _renderContextMenu($parent) {
         const $contextMenu = $('<div>')
             .appendTo($parent);
-        this._contextMenu = this._createComponent($contextMenu, DiagramContextMenuWrapper, {
+        this._contextMenu = this._createComponent($contextMenu, diagramContextMenuModule.DiagramContextMenuWrapper, {
             commands: this.option('contextMenu.commands'),
             onContentReady: ({ component }) => this._registerBar(component),
             onVisibilityChanging: ({ component }) => this._diagramInstance.updateBarItemsState(component.bar),
@@ -593,7 +596,7 @@ class Diagram extends Widget {
                     },
                     (shapeType) => {
                         e.callback(shapeType);
-                        this._diagramCaptureFocus();
+                        this._captureFocus();
                         e.hide();
                     }
                 );
@@ -622,7 +625,7 @@ class Diagram extends Widget {
     _showDialog(dialogParameters) {
         if(this._dialogInstance) {
             this._dialogInstance.option('onGetContent', dialogParameters.onGetContent);
-            this._dialogInstance.option('onHidden', function() { this._diagramCaptureFocus(); }.bind(this));
+            this._dialogInstance.option('onHidden', function() { this._captureFocus(); }.bind(this));
             this._dialogInstance.option('command', this._diagramInstance.getCommand(dialogParameters.command));
             this._dialogInstance.option('title', dialogParameters.title);
             this._dialogInstance._show();
@@ -743,7 +746,9 @@ class Diagram extends Widget {
     }
     _clean() {
         if(this._diagramInstance) {
-            this._diagramInstance.cleanMarkup();
+            this._diagramInstance.cleanMarkup((element) => {
+                $(element).empty();
+            });
         }
         super._clean();
     }
@@ -814,7 +819,7 @@ class Diagram extends Widget {
 
     _createOptionGetter(optionName) {
         const expr = this.option(optionName);
-        return expr && dataCoreUtils.compileGetter(expr);
+        return expr && compileGetter(expr);
     }
     _onRequestUpdateLayout(changes) {
         if(!this._requestLayoutUpdateAction) {
@@ -830,7 +835,7 @@ class Diagram extends Widget {
         if(isFunction(expr)) {
             return expr;
         }
-        return expr && dataCoreUtils.compileSetter(expr);
+        return expr && compileSetter(expr);
     }
     _bindDiagramData() {
         if(this._updateDiagramLockCount || !this._isBindingMode()) return;
@@ -1489,13 +1494,14 @@ class Diagram extends Widget {
             changeConnectorPoints: this.option('editing.allowChangeConnectorPoints'),
             changeShapeText: this.option('editing.allowChangeShapeText'),
             changeConnectorText: this.option('editing.allowChangeConnectorText'),
-            resizeShape: this.option('editing.allowResizeShape')
+            resizeShape: this.option('editing.allowResizeShape'),
+            moveShape: this.option('editing.allowMoveShape')
         });
     }
 
 
     focus() {
-        this._diagramCaptureFocus();
+        this._captureFocus();
     }
     export() {
         return this._getDiagramData();
@@ -1518,6 +1524,10 @@ class Diagram extends Widget {
     import(data, updateExistingItemsOnly) {
         this._setDiagramData(data, updateExistingItemsOnly);
         this._raiseDataChangeAction();
+    }
+    updateToolbox() {
+        this._diagramInstance && this._diagramInstance.refreshToolbox();
+        this._toolbox && this._toolbox.updateMaxHeight();
     }
 
     _getDefaultOptions() {
@@ -2202,6 +2212,26 @@ class Diagram extends Widget {
                 * @default 'arrow'
                 */
                 connectorLineEnd: 'arrow',
+                /**
+                * @name dxDiagramOptions.defaultItemProperties.shapeMinWidth
+                * @type Number
+                * @default undefined
+                */
+                /**
+                * @name dxDiagramOptions.defaultItemProperties.shapeMinHeight
+                * @type Number
+                * @default undefined
+                */
+                /**
+                * @name dxDiagramOptions.defaultItemProperties.shapeMaxWidth
+                * @type Number
+                * @default undefined
+                */
+                /**
+                * @name dxDiagramOptions.defaultItemProperties.shapeMaxHeight
+                * @type Number
+                * @default undefined
+                */
             },
             editing: {
                 /**
@@ -2251,7 +2281,13 @@ class Diagram extends Widget {
                 * @type boolean
                 * @default true
                 */
-                allowResizeShape: true
+                allowResizeShape: true,
+                /**
+                * @name dxDiagramOptions.editing.allowMoveShape
+                * @type boolean
+                * @default true
+                */
+                allowMoveShape: true
             },
             export: {
                 /**
@@ -2465,6 +2501,8 @@ class Diagram extends Widget {
                 return 'changeConnectorText';
             case DiagramModelOperation.ResizeShape:
                 return 'resizeShape';
+            case DiagramModelOperation.MoveShape:
+                return 'moveShape';
         }
     }
     _getRequestEditOperationEventArgs(operation, args) {
@@ -2498,7 +2536,8 @@ class Diagram extends Widget {
                 break;
             case DiagramModelOperation.ChangeConnection:
                 eventArgs.args = {
-                    shape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    newShape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    oldShape: args.oldShape && this._nativeItemToDiagramItem(args.oldShape),
                     connector: args.connector && this._nativeItemToDiagramItem(args.connector),
                     connectionPointIndex: args.connectionPointIndex,
                     connectorPosition: (args.position === ConnectorPosition.Begin) ? 'start' : 'end',
@@ -2542,6 +2581,13 @@ class Diagram extends Widget {
                     oldSize: args.oldSize && { width: args.oldSize.width, height: args.oldSize.height }
                 };
                 break;
+            case DiagramModelOperation.MoveShape:
+                eventArgs.args = {
+                    shape: args.shape && this._nativeItemToDiagramItem(args.shape),
+                    newPosition: args.position && { x: args.position.x, y: args.position.y },
+                    oldPosition: args.oldPosition && { x: args.oldPosition.x, y: args.oldPosition.y }
+                };
+                break;
         }
         return eventArgs;
     }
@@ -2576,7 +2622,7 @@ class Diagram extends Widget {
             fromKey: nativeConnector.fromKey,
             toKey: nativeConnector.toKey,
 
-            fromId: nativeConnector.froId,
+            fromId: nativeConnector.fromId,
             fromPointIndex: nativeConnector.fromPointIndex,
             toId: nativeConnector.toId,
             toPointIndex: nativeConnector.toPointIndex,
@@ -2586,10 +2632,12 @@ class Diagram extends Widget {
         };
     }
     getItemByKey(key) {
-        return this._diagramInstance && this._diagramInstance.getNativeItemByDataKey(key);
+        const nativeItem = this._diagramInstance && this._diagramInstance.getNativeItemByDataKey(key);
+        return nativeItem && this._nativeItemToDiagramItem(nativeItem);
     }
     getItemById(id) {
-        return this._diagramInstance && this._diagramInstance.getNativeItemByKey(id);
+        const nativeItem = this._diagramInstance && this._diagramInstance.getNativeItemByKey(id);
+        return nativeItem && this._nativeItemToDiagramItem(nativeItem);
     }
 
     _invalidateContextMenuCommands() {

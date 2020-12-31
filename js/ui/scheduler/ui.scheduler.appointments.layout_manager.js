@@ -42,17 +42,19 @@ class AppointmentLayoutManager {
     }
 
     createAppointmentsMap(items) {
-        const { width, height, allDayHeight } = this.getCellDimensions();
-        this.instance._cellWidth = width;
-        this.instance._cellHeight = height;
+        const { allDayHeight } = this.getCellDimensions();
         this.instance._allDayCellHeight = allDayHeight;
         this.getGroupOrientation({
             callback: groupOrientation => this.instance._groupOrientation = groupOrientation
         });
 
-        this._positionMap = this._renderingStrategyInstance.createTaskPositionMap(items);
+        const appointments = items
+            ? items.slice()
+            : [];
 
-        return this._createAppointmentsMapCore(items || [], this._positionMap);
+        this._positionMap = this._renderingStrategyInstance.createTaskPositionMap(appointments);
+
+        return this._createAppointmentsMapCore(appointments, this._positionMap);
     }
 
     _createAppointmentsMapCore(list, positionMap) {

@@ -312,6 +312,15 @@
 
   .dx-#{$widget-name}-content {
     position: relative;
+
+    .dx-overlay-wrapper.dx-invalid-message.dx-#{$widget-name}-invalid-message {
+      visibility: visible;
+
+      .dx-overlay-content {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
   }
 
   .dx-#{$widget-name}-text-content {
@@ -439,11 +448,6 @@
 
       .dx-#{$widget-name}-invalid .dx-invalid-message.dx-overlay {
         position: static;
-
-        .dx-overlay-content {
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
       }
 
       .dx-editor-cell {
@@ -459,11 +463,6 @@
         .dx-texteditor-container {
           border: 0;
           margin: 0;
-        }
-
-        .dx-dropdowneditor {
-          margin-left: -1px;
-          padding-left: 1px;
         }
       }
 
@@ -821,7 +820,8 @@
     &.dx-scrollable {
       display: flex;
 
-      & > .dx-scrollable-wrapper {
+      > .dx-scrollable-wrapper,
+      > div > .dx-scrollable-wrapper {
         flex: 1;
         height: auto;
         min-width: 0;

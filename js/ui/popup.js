@@ -614,12 +614,12 @@ const Popup = Overlay.inherit({
         };
     },
 
-    _useFixedPosition: function() {
+    _shouldFixBodyPosition: function() {
         return this.callBase() || this.option('fullScreen');
     },
 
     _toggleSafariFullScreen: function(value) {
-        const toggleFullScreenBeforeShown = this._useFixedPosition() && value && !this._isShown;
+        const toggleFullScreenBeforeShown = this._shouldFixBodyPosition() && value && !this._isShown;
         if(toggleFullScreenBeforeShown) {
             this._bodyScrollTop = value ? window.pageYOffset : undefined;
         } else {
@@ -631,7 +631,11 @@ const Popup = Overlay.inherit({
         if(this.option('fullScreen')) {
             this._$content.css({
                 width: '100%',
-                height: '100%'
+                height: '100%',
+                minWidth: '',
+                maxWidth: '',
+                minHeight: '',
+                maxHeight: ''
             });
         } else {
             this.callBase(...arguments);
@@ -669,10 +673,12 @@ const Popup = Overlay.inherit({
             case 'titleTemplate':
                 this._renderTitle();
                 this._renderGeometry();
+                triggerResizeEvent(this._$content);
                 break;
             case 'bottomTemplate':
                 this._renderBottom();
                 this._renderGeometry();
+                triggerResizeEvent(this._$content);
                 break;
             case 'onTitleRendered':
                 this._createTitleRenderAction(args.value);
@@ -689,6 +695,7 @@ const Popup = Overlay.inherit({
 
                 if(shouldRenderGeometry) {
                     this._renderGeometry();
+                    triggerResizeEvent(this._$content);
                 }
                 break;
             }

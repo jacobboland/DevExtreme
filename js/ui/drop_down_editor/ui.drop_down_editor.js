@@ -9,11 +9,11 @@ import { isDefined } from '../../core/utils/type';
 import { extend } from '../../core/utils/extend';
 import { getPublicElement } from '../../core/element';
 import errors from '../widget/ui.errors';
-import { setup as setupPosition } from '../../animation/position';
+import animationPosition from '../../animation/position';
 import { getDefaultAlignment } from '../../core/utils/position';
 import DropDownButton from './ui.drop_down_button';
 import Widget from '../widget/ui.widget';
-import { format as formatMessage } from '../../localization/message';
+import messageLocalization from '../../localization/message';
 import { addNamespace } from '../../events/utils/index';
 import TextBox from '../text_box';
 import { name as clickEventName } from '../../events/click';
@@ -21,6 +21,7 @@ import devices from '../../core/devices';
 import { FunctionTemplate } from '../../core/templates/function_template';
 import Popup from '../popup';
 import { hasWindow } from '../../core/utils/window';
+import { getElementWidth, getSizeValue } from './utils';
 
 const DROP_DOWN_EDITOR_CLASS = 'dx-dropdowneditor';
 const DROP_DOWN_EDITOR_INPUT_WRAPPER = 'dx-dropdowneditor-input-wrapper';
@@ -125,8 +126,8 @@ const DropDownEditor = TextBox.inherit({
             dropDownOptions: { showTitle: false },
             popupPosition: this._getDefaultPopupPosition(),
             onPopupInitialized: null,
-            applyButtonText: formatMessage('OK'),
-            cancelButtonText: formatMessage('Cancel'),
+            applyButtonText: messageLocalization.format('OK'),
+            cancelButtonText: messageLocalization.format('Cancel'),
             buttonsLocation: 'default',
             useHiddenSubmitElement: false
 
@@ -321,6 +322,7 @@ const DropDownEditor = TextBox.inherit({
         const $container = this._$container;
 
         this._detachKeyboardEvents();
+        this._refreshButtonsContainer();
 
         // NOTE: to prevent buttons disposition
         const beforeButtonsContainerParent = this._$beforeButtonsContainer && this._$beforeButtonsContainer[0].parentNode;
@@ -350,6 +352,10 @@ const DropDownEditor = TextBox.inherit({
 
         $container.prepend(this._$beforeButtonsContainer);
         $container.append(this._$afterButtonsContainer);
+    },
+
+    _refreshButtonsContainer() {
+        this._$buttonsContainer = this.$element().children().eq(0);
     },
 
     _integrateInput: function() {
@@ -519,7 +525,7 @@ const DropDownEditor = TextBox.inherit({
                 of: this.$element()
             }),
             showTitle: this.option('dropDownOptions.showTitle'),
-            width: 'auto',
+            width: () => getElementWidth(this.$element()),
             height: 'auto',
             shading: false,
             closeOnTargetScroll: true,
@@ -531,6 +537,7 @@ const DropDownEditor = TextBox.inherit({
             deferRendering: false,
             focusStateEnabled: false,
             showCloseButton: false,
+            dragEnabled: false,
             toolbarItems: this._getPopupToolbarItems(),
             onPositioned: this._popupPositionedHandler.bind(this),
             fullScreen: false,
@@ -546,6 +553,14 @@ const DropDownEditor = TextBox.inherit({
         return (e) => {
             this._popupInitializedAction({ popup: e.component });
         };
+    },
+
+    _dimensionChanged: function() {
+        const popupWidth = getSizeValue(this.option('dropDownOptions.width'));
+
+        if(popupWidth === undefined) {
+            this._setPopupOption('width', () => getElementWidth(this.$element()));
+        }
     },
 
     _popupPositionedHandler: function(e) {
@@ -573,8 +588,8 @@ const DropDownEditor = TextBox.inherit({
         let positionRequest = 'below';
 
         if(this._popup && this._popup.option('visible')) {
-            const { top: myTop } = setupPosition(this.$element());
-            const { top: popupTop } = setupPosition(this._popup.$content());
+            const { top: myTop } = animationPosition.setup(this.$element());
+            const { top: popupTop } = animationPosition.setup(this._popup.$content());
 
             positionRequest = (myTop + this.option('popupPosition').offset.v) > popupTop ? 'below' : 'above';
         }
@@ -700,15 +715,14 @@ const DropDownEditor = TextBox.inherit({
         this.option('focusStateEnabled') && this.focus();
     },
 
-    _updatePopupWidth: noop,
-
     _popupOptionChanged: function(args) {
         const options = Widget.getOptionsFromContainer(args);
 
         this._setPopupOption(options);
 
-        if(Object.keys(options).indexOf('width') !== -1 && options['width'] === undefined) {
-            this._updatePopupWidth();
+        const optionsKeys = Object.keys(options);
+        if(optionsKeys.indexOf('width') !== -1 || optionsKeys.indexOf('height') !== -1) {
+            this._dimensionChanged();
         }
     },
 
@@ -747,6 +761,11 @@ const DropDownEditor = TextBox.inherit({
 
     _optionChanged: function(args) {
         switch(args.name) {
+            case 'width':
+            case 'height':
+                this.callBase(args);
+                this._popup?.repaint();
+                break;
             case 'opened':
                 this._renderOpenedState();
                 break;

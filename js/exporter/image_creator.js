@@ -1,7 +1,7 @@
 import $ from '../core/renderer';
 import Color from '../color';
 import { isFunction, isPromise, isDefined } from '../core/utils/type';
-import svgUtils from '../core/utils/svg';
+import { getSvgElement } from '../core/utils/svg';
 import { each as _each, map as _map } from '../core/utils/iterator';
 import { extend } from '../core/utils/extend';
 import domAdapter from '../core/dom_adapter';
@@ -563,22 +563,27 @@ function createFilter(element) {
 }
 
 function asyncEach(array, callback, d = new Deferred()) {
-    if(array.length === 0) {
-        return d.resolve();
+    let i = 0;
+    for(; i < array.length; i++) {
+        const result = callback(array[i]);
+        if(isPromise(result)) {
+            result.then(() => {
+                asyncEach(Array.prototype.slice.call(array, i + 1), callback, d);
+            });
+            break;
+        }
     }
 
-    const result = callback(array[0]);
-    function next() {
-        asyncEach(Array.prototype.slice.call(array, 1), callback, d);
-    }
-    if(isPromise(result)) {
-        result.then(next);
-    } else {
-        next();
+    if(i === array.length) {
+        d.resolve();
     }
 
     return d;
 }
+
+///#DEBUG
+export { asyncEach };
+///#ENDDEBUG
 
 function drawCanvasElements(elements, context, parentOptions, shared) {
     return asyncEach(elements, function(element) {
@@ -718,7 +723,7 @@ function convertSvgToCanvas(svg, canvas, rootAppended) {
 function getCanvasFromSvg(markup, width, height, backgroundColor, margin, svgToCanvas = convertSvgToCanvas) {
     const canvas = createCanvas(width, height, margin);
     const context = canvas.getContext('2d');
-    const svgElem = svgUtils.getSvgElement(markup);
+    const svgElem = getSvgElement(markup);
     let invisibleDiv;
     const markupIsDomElement = domAdapter.isElementNode(markup);
     context.translate(margin, margin);

@@ -1,21 +1,21 @@
 /* globals Intl */
 import dxConfig from '../../core/config';
-import { locale, getValueByClosestLocale } from '../core';
+import localizationCoreUtils from '../core';
 import openXmlCurrencyFormat from '../open_xml_currency_format';
 import accountingFormats from '../cldr-data/accounting_formats';
 
 const detectCurrencySymbolRegex = /([^\s0]+)?(\s*)0*[.,]*0*(\s*)([^\s0]+)?/;
 const formattersCache = {};
 const getFormatter = format => {
-    const key = locale() + '/' + JSON.stringify(format);
+    const key = localizationCoreUtils.locale() + '/' + JSON.stringify(format);
     if(!formattersCache[key]) {
-        formattersCache[key] = (new Intl.NumberFormat(locale(), format)).format;
+        formattersCache[key] = (new Intl.NumberFormat(localizationCoreUtils.locale(), format)).format;
     }
 
     return formattersCache[key];
 };
 const getCurrencyFormatter = currency => {
-    return (new Intl.NumberFormat(locale(), { style: 'currency', currency: currency }));
+    return (new Intl.NumberFormat(localizationCoreUtils.locale(), { style: 'currency', currency: currency }));
 };
 
 export default {
@@ -27,7 +27,7 @@ export default {
             return this.callBase.apply(this, arguments);
         }
 
-        return getFormatter(this._normalizeFormatConfig(format, formatConfig))(value);
+        return getFormatter(this._normalizeFormatConfig(format, formatConfig, value))(value);
     },
     _normalizeFormatConfig: function(format, formatConfig, value) {
         let config;
@@ -116,7 +116,7 @@ export default {
     getOpenXmlCurrencyFormat: function(currency) {
         const targetCurrency = currency || dxConfig().defaultCurrency;
         const currencySymbol = this._getCurrencySymbolInfo(targetCurrency).symbol;
-        const closestAccountingFormat = getValueByClosestLocale(locale => accountingFormats[locale]);
+        const closestAccountingFormat = localizationCoreUtils.getValueByClosestLocale(locale => accountingFormats[locale]);
 
         return openXmlCurrencyFormat(currencySymbol, closestAccountingFormat);
     }

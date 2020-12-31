@@ -1,5 +1,5 @@
 import $ from '../../core/renderer';
-import array from '../../core/utils/array';
+import { wrapToArray, inArray } from '../../core/utils/array';
 import { isDefined, isPlainObject } from '../../core/utils/type';
 import dateUtils from '../../core/utils/date';
 import { each } from '../../core/utils/iterator';
@@ -7,7 +7,6 @@ import errors from '../widget/ui.errors';
 import { locate } from '../../animation/translator';
 import { grep } from '../../core/utils/common';
 import { extend } from '../../core/utils/extend';
-import { inArray } from '../../core/utils/array';
 import { Deferred } from '../../core/utils/deferred';
 import dateLocalization from '../../localization/date';
 import timeZoneUtils from './utils.timeZone';
@@ -139,7 +138,7 @@ const subscribes = {
             const field = resourcesManager.getField(resourceForPainting);
             const groupIndex = options.groupIndex;
             const groups = this._workSpace._getCellGroups(groupIndex);
-            const resourceValues = array.wrapToArray(resourcesManager.getDataAccessors(field, 'getter')(options.itemData));
+            const resourceValues = wrapToArray(resourcesManager.getDataAccessors(field, 'getter')(options.itemData));
             let groupId = resourceValues.length ? resourceValues[0] : undefined;
 
             for(let i = 0; i < groups.length; i++) {
@@ -170,24 +169,20 @@ const subscribes = {
         return this._appointmentModel.appointmentTakesSeveralDays(appointment);
     },
 
-    getTextAndFormatDate(appointment, targetedAppointment, format) { // TODO: rename to createFormattedDateText
-        const appointmentAdapter = this.createAppointmentAdapter(appointment);
-        const adapter = this.createAppointmentAdapter(targetedAppointment || appointment)
-            .clone({ pathTimeZone: 'toGrid' });
+    getTextAndFormatDate(appointmentRaw, targetedAppointmentRaw, format) { // TODO: rename to createFormattedDateText
+        const appointmentAdapter = this.createAppointmentAdapter(appointmentRaw);
+        const targetedAdapter = this.createAppointmentAdapter(targetedAppointmentRaw || appointmentRaw);
 
-        const formatType = format || this.fire('_getTypeFormat', adapter.startDate, adapter.endDate, adapter.allDay);
+        // TODO pull out time zone converting from appointment adapter for knockout(T947938)
+        const startDate = this.timeZoneCalculator.createDate(targetedAdapter.startDate, { path: 'toGrid' });
+        const endDate = this.timeZoneCalculator.createDate(targetedAdapter.endDate, { path: 'toGrid' });
+
+        const formatType = format || this.fire('_getTypeFormat', startDate, endDate, targetedAdapter.allDay);
 
         return {
-            text: adapter.text || appointmentAdapter.text,
-            formatDate: this.fire('_formatDates', adapter.startDate, adapter.endDate, formatType)
+            text: targetedAdapter.text || appointmentAdapter.text,
+            formatDate: this.fire('_formatDates', startDate, endDate, formatType)
         };
-    },
-
-    _getAppointmentFields(data, arrayOfFields) {
-        return arrayOfFields.reduce((accumulator, field) => {
-            accumulator[field] = this.fire('getField', field, data);
-            return accumulator;
-        }, {});
     },
 
     _getTypeFormat(startDate, endDate, isAllDay) {
@@ -282,16 +277,16 @@ const subscribes = {
     },
 
     getCellWidth: function() {
-        return this._cellWidth;
+        return this.getWorkSpace().getCellWidth();
     },
 
     getCellHeight: function() {
-        return this._cellHeight;
+        return this.getWorkSpace().getCellHeight();
     },
 
     getResizableStep: function() {
-        const cellWidth = this._cellWidth;
         const workSpace = this.getWorkSpace();
+        const cellWidth = workSpace.getCellWidth();
 
         if(workSpace.isGroupedByDate()) {
             return workSpace._getGroupCount() * cellWidth;
@@ -493,7 +488,7 @@ const subscribes = {
         const workspace = this.getWorkSpace();
         const resourcesManager = this._resourcesManager;
 
-        let allDay = this.option('showAllDayPanel') || !this._workSpace.supportAllDayRow();
+        const isAllDaySupported = this.option('showAllDayPanel') || !this._workSpace.supportAllDayRow();
 
         const { viewDataProvider } = workspace;
         const { groupedData } = viewDataProvider.viewData;
@@ -508,7 +503,7 @@ const subscribes = {
             const startDayHour = startDate.getHours();
             const endDayHour = (startDayHour + (endDate - startDate) / HOUR_MS) % HOURS_IN_DAY;
 
-            allDay = (allDay !== false) && allDayPanel?.length > 0;
+            const allDay = (isAllDaySupported !== false) && allDayPanel?.length > 0;
 
             const groups = viewDataProvider.getCellsGroup(groupIndex);
             const groupResources = isVerticalGrouping
@@ -516,6 +511,7 @@ const subscribes = {
                 : resourcesManager.getResourcesData();
 
             filterOptions.push({
+                isVirtualScrolling: true,
                 startDayHour,
                 endDayHour,
                 min: startDate,
@@ -761,8 +757,8 @@ const subscribes = {
         return result;
     },
 
-    fixWrongEndDate: function(appointment, startDate, endDate) {
-        return this._appointmentModel.fixWrongEndDate(appointment, startDate, endDate);
+    replaceWrongEndDate: function(appointment, startDate, endDate) {
+        this._appointmentModel.replaceWrongEndDate(appointment, startDate, endDate);
     },
 
     calculateAppointmentEndDate: function(isAllDay, startDate) {
@@ -798,6 +794,6 @@ const subscribes = {
 
     removeDroppableCellClass: function() {
         this._workSpace.removeDroppableCellClass();
-    },
+    }
 };
 export default subscribes;

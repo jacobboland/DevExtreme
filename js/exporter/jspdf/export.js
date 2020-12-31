@@ -56,10 +56,12 @@ export const Export = {
             jsPDFDocument,
             autoTableOptions,
             component,
+            customizeCell,
             keepColumnWidths,
             selectedRowsOnly
         } = options;
         const dataProvider = component.getDataProvider(selectedRowsOnly);
+        const wrapText = !!component.option('wordWrapEnabled');
 
         return new Promise((resolve) => {
             dataProvider.ready().done(() => {
@@ -67,6 +69,7 @@ export const Export = {
                 const styles = dataProvider.getStyles();
                 const dataRowsCount = dataProvider.getRowsCount();
                 const headerRowCount = dataProvider.getHeaderRowCount();
+                const mergedCells = [];
 
                 if(keepColumnWidths) {
                     const pdfColumnWidths = this._tryGetPdfColumnWidths(autoTableOptions.tableWidth, dataProvider.getColumnsWidths());
@@ -86,14 +89,32 @@ export const Export = {
 
                         const pdfCell = {
                             content: this._getFormattedValue(value, cellStyle.format),
-                            styles: this._getPDFCellStyles(gridCell.rowType, columns[cellIndex].alignment, cellStyle)
+                            styles: this._getPDFCellStyles(gridCell.rowType, columns[cellIndex].alignment, cellStyle, wrapText)
                         };
 
-                        if(gridCell.rowType === 'group' && !isDefined(pdfCell.content) && row.length === 1) {
+                        if(gridCell.rowType === 'header') {
+                            const mergedRange = this._tryGetMergeRange(rowIndex, cellIndex, mergedCells, dataProvider);
+                            if(mergedRange && mergedRange.rowSpan > 0) {
+                                pdfCell.rowSpan = mergedRange.rowSpan + 1;
+                            }
+                            if(mergedRange && mergedRange.colSpan > 0) {
+                                pdfCell.colSpan = mergedRange.colSpan + 1;
+                            }
+                            const isMergedCell = mergedCells[rowIndex] && mergedCells[rowIndex][cellIndex];
+                            if(!isMergedCell || pdfCell.rowSpan > 1 || pdfCell.colSpan > 1) {
+                                if(isFunction(customizeCell)) {
+                                    customizeCell({ gridCell, pdfCell });
+                                }
+                                row.push(pdfCell);
+                            }
+                        } else if(gridCell.rowType === 'group' && !isDefined(pdfCell.content) && row.length === 1) {
                             row[0].colSpan = row[0].colSpan ?? 1;
                             row[0].colSpan++;
                         } else {
                             pdfCell.content = pdfCell.content ?? '';
+                            if(isFunction(customizeCell)) {
+                                customizeCell({ gridCell, pdfCell });
+                            }
                             row.push(pdfCell);
                         }
                     }
@@ -127,24 +148,39 @@ export const Export = {
         return value;
     },
 
-    _getPDFCellStyles: function(rowType, columnAlignment, cellStyle) {
-        const { alignment: cellAlignment, bold, wrapText } = cellStyle;
+    _getPDFCellStyles: function(rowType, columnAlignment, cellStyle, wrapText) {
+        const { alignment: cellAlignment, bold } = cellStyle;
         const align = (rowType === 'header') ? columnAlignment : cellAlignment;
         const pdfCellStyle = {};
 
         if(align) {
             pdfCellStyle['halign'] = align;
         }
-        if(rowType !== 'header') {
-            if(bold) {
-                pdfCellStyle.fontStyle = 'bold';
-            }
-            if(wrapText) {
-                pdfCellStyle.cellWidth = 'wrap';
-            }
+        if(bold && rowType !== 'header') {
+            pdfCellStyle.fontStyle = 'bold';
+        }
+        if(wrapText) {
+            pdfCellStyle.cellWidth = 'wrap';
         }
 
         return pdfCellStyle;
+    },
+
+    _tryGetMergeRange: function(rowIndex, cellIndex, mergedCells, dataProvider) {
+        if(!mergedCells[rowIndex] || !mergedCells[rowIndex][cellIndex]) {
+            const { colspan, rowspan } = dataProvider.getCellMerging(rowIndex, cellIndex);
+            if(colspan || rowspan) {
+                for(let i = rowIndex; i <= rowIndex + rowspan || 0; i++) {
+                    for(let j = cellIndex; j <= cellIndex + colspan || 0; j++) {
+                        if(!mergedCells[i]) {
+                            mergedCells[i] = [];
+                        }
+                        mergedCells[i][j] = true;
+                    }
+                }
+                return { rowSpan: rowspan, colSpan: colspan };
+            }
+        }
     },
 
     _tryGetPdfColumnWidths(autoTableWidth, columnWidths) {

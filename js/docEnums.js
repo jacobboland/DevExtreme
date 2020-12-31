@@ -1011,7 +1011,7 @@
 
 /**
  * @typedef {string} Enums.HtmlEditorToolbarItem
- * @enum {'background'|'bold'|'color'|'font'|'italic'|'link'|'image'|'size'|'strike'|'subscript'|'superscript'|'underline'|'blockquote'|'header'|'increaseIndent'|'decreaseIndent'|'orderedList'|'bulletList'|'alignLeft'|'alignCenter'|'alignRight'|'alignJustify'|'codeBlock'|'variable'|'separator'|'undo'|'redo'|'clear'}
+ * @enum {'background'|'bold'|'color'|'font'|'italic'|'link'|'image'|'size'|'strike'|'subscript'|'superscript'|'underline'|'blockquote'|'header'|'increaseIndent'|'decreaseIndent'|'orderedList'|'bulletList'|'alignLeft'|'alignCenter'|'alignRight'|'alignJustify'|'codeBlock'|'variable'|'separator'|'undo'|'redo'|'clear'|'insertTable'|'insertRowAbove'|'insertRowBelow'|'insertColumnLeft'|'insertColumnRight'|'deleteColumn'|'deleteRow'|'deleteTable'}
  */
 
 /**
@@ -1085,7 +1085,7 @@
  */
 /**
  * @typedef {string} Enums.DiagramDataLayoutOrientation
- * @enum {'auto'|'vertical'|'horizontal'}
+ * @enum {'vertical'|'horizontal'}
  */
 
 /**
@@ -1105,7 +1105,7 @@
 
 /**
  * @typedef {string} Enums.DiagramShapeType
- * @enum {'text'|'rectangle'|'ellipse'|'cross'|'triangle'|'diamond'|'heart'|'pentagon'|'octagon'|'star'|'arrowLeft'|'arrowTop'|'arrowRight'|'arrowBottom'|'arrowNorthSouth'|'arrowEastWest'|'process'|'decision'|'terminator'|'predefinedProcess'|'document'|'multipleDocuments'|'manualInput'|'preparation'|'data'|'database'|'hardDisk'|'internalStorage'|'paperTape'|'manualOperation'|'delay'|'storedData'|'display'|'merge'|'connector'|'or'|'summingJunction'|'verticalContainer'|'horizontalContainer'|'cardWithImageOnLeft'|'cardWithImageOnTop'|'cardWithImageOnRight'}
+ * @enum {'text'|'rectangle'|'ellipse'|'cross'|'triangle'|'diamond'|'heart'|'pentagon'|'hexagon'|'octagon'|'star'|'arrowLeft'|'arrowTop'|'arrowRight'|'arrowBottom'|'arrowNorthSouth'|'arrowEastWest'|'process'|'decision'|'terminator'|'predefinedProcess'|'document'|'multipleDocuments'|'manualInput'|'preparation'|'data'|'database'|'hardDisk'|'internalStorage'|'paperTape'|'manualOperation'|'delay'|'storedData'|'display'|'merge'|'connector'|'or'|'summingJunction'|'verticalContainer'|'horizontalContainer'|'cardWithImageOnLeft'|'cardWithImageOnTop'|'cardWithImageOnRight'}
  */
 
 /**
@@ -1150,7 +1150,7 @@
 
 /**
  * @typedef {string} Enums.DiagramModelOperation
- * @enum {'addShape'|'addShapeFromToolbox'|'deleteShape'|'deleteConnector'|'changeConnection'|'changeConnectorPoints'|'beforeChangeShapeText'|'changeShapeText'|'beforeChangeConnectorText'|'changeConnectorText'|'resizeShape'}
+ * @enum {'addShape'|'addShapeFromToolbox'|'deleteShape'|'deleteConnector'|'changeConnection'|'changeConnectorPoints'|'beforeChangeShapeText'|'changeShapeText'|'beforeChangeConnectorText'|'changeConnectorText'|'resizeShape'|'moveShape'}
  */
 
 /**

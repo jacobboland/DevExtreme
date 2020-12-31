@@ -1,5 +1,5 @@
 import consts from './components/consts';
-import { normalizeAngle, getVerticallyShiftedAngularCoords as _getVerticallyShiftedAngularCoords } from './core/utils';
+import { normalizeAngle, getVerticallyShiftedAngularCoords as _getVerticallyShiftedAngularCoords, patchFontOptions } from './core/utils';
 import { extend as _extend } from '../core/utils/extend';
 import { isNumeric } from '../core/utils/type';
 import { each as _each } from '../core/utils/iterator';
@@ -8,7 +8,6 @@ import registerComponent from '../core/component_registrator';
 import { BaseChart, overlapping } from './chart_components/base_chart';
 import { noop as _noop } from '../core/utils/common';
 import { Translator1D } from './translators/translator1d';
-import { patchFontOptions } from './core/utils';
 
 const { states } = consts;
 const seriesSpacing = consts.pieSeriesSpacing;
@@ -329,7 +328,7 @@ const dxPieChart = BaseChart.inherit({
         if(!this._centerTemplateGroup) {
             this._centerTemplateGroup = this._renderer.g().attr({ class: 'dxc-hole-template' }).css(patchFontOptions(this._themeManager._font));
         }
-        this._centerTemplateGroup.append(this._renderer.root);
+        this._centerTemplateGroup.attr({ visibility: 'hidden' }).append(this._renderer.root);
 
         template = this._getTemplate(template);
 
@@ -337,8 +336,10 @@ const dxPieChart = BaseChart.inherit({
             model: this,
             container: this._centerTemplateGroup.element,
             onRendered: ()=>{
-                const bBox = this._centerTemplateGroup.getBBox();
-                this._centerTemplateGroup.move(this._center.x - (bBox.x + bBox.width / 2), this._center.y - (bBox.y + bBox.height / 2));
+                const group = this._centerTemplateGroup;
+                const bBox = group.getBBox();
+                group.move(this._center.x - (bBox.x + bBox.width / 2), this._center.y - (bBox.y + bBox.height / 2));
+                group.attr({ visibility: 'visible' });
             }
         });
     },

@@ -51,7 +51,6 @@ QUnit.testStart(() => {
     $('#qunit-fixture').html(markup);
 });
 
-const POPUP_CLASS = 'dx-selectbox-popup';
 const POPUP_CONTENT_CLASS = 'dx-popup-content';
 const LIST_CLASS = 'dx-list';
 const LIST_ITEM_CLASS = 'dx-list-item';
@@ -62,6 +61,7 @@ const TEXTEDITOR_BUTTONS_CONTAINER_CLASS = 'dx-texteditor-buttons-container';
 const PLACEHOLDER_CLASS = 'dx-placeholder';
 const TEXTEDITOR_INPUT_CLASS = 'dx-texteditor-input';
 const OVERLAY_CONTENT_CLASS = 'dx-overlay-content';
+const CLEAR_BUTTON_AREA = 'dx-clear-button-area';
 
 const KEY_DOWN = 'ArrowDown';
 const KEY_ENTER = 'Enter';
@@ -84,39 +84,6 @@ const moduleSetup = {
         this.clock.restore();
     }
 };
-
-QUnit.module('rendering with css', {}, () => {
-    QUnit.test('Right width of popup', function(assert) {
-        const editorWidth = 100;
-        const $element = $('#selectBox').dxSelectBox({ editorWidth: 100 });
-        const instance = $element.dxSelectBox('instance');
-        instance.open();
-        const $popup = $(instance._popup.$element());
-
-        assert.ok($popup.hasClass(POPUP_CLASS));
-
-        assert.strictEqual(typeof instance._popup.option('width'), 'function');
-
-        const $overlayContent = $('.dx-overlay-content');
-        assert.ok($overlayContent.outerWidth() > editorWidth, 'overlay content width is correct');
-    });
-
-    QUnit.test('popup should have width and minWidth equal to the input width', function(assert) {
-        const instance = $('#selectBox').dxSelectBox({
-            width: 400,
-            opened: true
-        }).dxSelectBox('instance');
-
-        const $overlayContent = $(`.${OVERLAY_CONTENT_CLASS}`);
-        assert.strictEqual($overlayContent.css('width'), '400px', 'popup width is correct');
-        assert.strictEqual($overlayContent.css('minWidth'), '400px', 'popup width is correct');
-
-        instance.option('width', 600);
-
-        assert.strictEqual($overlayContent.css('width'), '600px', 'popup width is correct');
-        assert.strictEqual($overlayContent.css('minWidth'), '600px', 'popup width is correct');
-    });
-});
 
 QUnit.module('hidden input', moduleSetup, () => {
 
@@ -1603,13 +1570,31 @@ QUnit.module('clearButton', moduleSetup, () => {
         const selectBox = $element.dxSelectBox('instance');
 
         this.clock.tick(TIME_TO_WAIT);
-        pointerMock($element.find('.dx-clear-button-area')).click();
+        pointerMock($element.find(toSelector(CLEAR_BUTTON_AREA))).click();
         assert.equal(selectBox.option('opened'), false, 'selectbox is closed after click on clear button');
 
         selectBox.option('searchEnabled', true);
         selectBox.option('searchTimeout', 0);
-        pointerMock($element.find('.dx-clear-button-area')).click();
+        pointerMock($element.find(toSelector(CLEAR_BUTTON_AREA))).click();
         assert.equal(selectBox.option('opened'), false, 'selectbox is closed after click on clear button if searchEnabled = true');
+    });
+
+    QUnit.test('selectBox should be opened on instant re-click after click on clearButton (T935717)', function(assert) {
+        const $element = $('#selectBox').dxSelectBox({
+            items: [1, 2, 3],
+            showClearButton: true,
+            searchEnabled: true,
+            value: 1,
+            searchTimeout: 3000
+        });
+        const selectBox = $element.dxSelectBox('instance');
+        const $clearButton = $element.find(toSelector(CLEAR_BUTTON_AREA));
+        const $dropDownButton = $element.find(toSelector(DX_DROP_DOWN_BUTTON));
+
+        pointerMock($clearButton).click();
+        pointerMock($dropDownButton).click();
+
+        assert.strictEqual(selectBox.option('opened'), true, 'selectBox is opened after instant re-click');
     });
 
     QUnit.test('drop down list should be still opened if click \'clear\' during the search', function(assert) {
@@ -1627,7 +1612,7 @@ QUnit.module('clearButton', moduleSetup, () => {
             .focus()
             .type('50')
             .change();
-        pointerMock($element.find('.dx-clear-button-area')).click();
+        pointerMock($element.find(toSelector(CLEAR_BUTTON_AREA))).click();
 
         assert.ok(selectBox.option('opened'), 'selectbox is opened');
     });
@@ -1642,7 +1627,7 @@ QUnit.module('clearButton', moduleSetup, () => {
             searchEnabled: true
         });
 
-        const $clearButton = $selectBox.find('.dx-clear-button-area');
+        const $clearButton = $selectBox.find(toSelector(CLEAR_BUTTON_AREA));
 
         $($clearButton).trigger('dxclick');
 
@@ -1657,7 +1642,7 @@ QUnit.module('clearButton', moduleSetup, () => {
             onValueChanged: valueChangedHandler,
             showClearButton: true
         });
-        const $clearButton = $selectBox.find('.dx-clear-button-area');
+        const $clearButton = $selectBox.find(toSelector(CLEAR_BUTTON_AREA));
 
         $($clearButton).trigger('dxclick');
 
@@ -1679,7 +1664,7 @@ QUnit.module('clearButton', moduleSetup, () => {
 
         this.clock.tick();
 
-        pointerMock($selectBox.find('.dx-clear-button-area')).click();
+        pointerMock($selectBox.find(toSelector(CLEAR_BUTTON_AREA))).click();
 
         this.clock.tick();
 
@@ -1705,7 +1690,7 @@ QUnit.module('clearButton', moduleSetup, () => {
         const items = $(toSelector(LIST_ITEM_CLASS));
         items.eq(1).trigger('dxclick');
 
-        const $clearButton = $('.dx-clear-button-area');
+        const $clearButton = $(toSelector(CLEAR_BUTTON_AREA));
         $($clearButton).trigger('dxclick');
 
         assert.equal(selectBox.option('value'), null, 'value is reset after click on \'clear\' button');
@@ -2779,7 +2764,7 @@ QUnit.module('search', moduleSetup, () => {
         assert.equal($items.length, 1, 'items was filtered');
     });
 
-    QUnit.test('data is filtered when min search length is exceeded', function(assert) {
+    QUnit.test('data is filtered when min search length is exceeded and showDataBeforeSearch: true', function(assert) {
         const $selectBox = $('#selectBox').dxSelectBox({
             dataSource: ['one', 'two', 'three'],
             showDataBeforeSearch: true,
@@ -3488,7 +3473,7 @@ QUnit.module('search substitution', {
         }
     });
 
-    QUnit.test('the \'left\', \'right\', \'home\' and \'end\' keys press should lead to the list dataSource filtering', function(assert) {
+    QUnit.test('the \'left\', \'right\', \'home\' and \'end\' keys press should lead to the list dataSource filtering and loadCount: 0', function(assert) {
         const keys = ['left', 'right', 'home', 'end'];
         const item = 'item1';
 
@@ -4174,13 +4159,20 @@ QUnit.module('keyboard navigation', moduleSetup, () => {
         assert.strictEqual(instance.option('value'), 1, 'upArrow');
     });
 
-    ['ArrowDown', 'ArrowUp'].forEach((key) => {
-        QUnit.test(`${key} should trigger onValueChanged with right e.event when dropDown is closed (T844170)`, function(assert) {
+    [
+        { key: 'ArrowDown', delta: 1 },
+        { key: 'ArrowUp', delta: -1 },
+        { key: 'Down', delta: 1 }, // IE11 (T945185)
+        { key: 'Up', delta: -1 } // IE11 (T945185)
+    ].forEach(({ key, delta }) => {
+        QUnit.test(`${key} should trigger onValueChanged with right e.event and value when dropDown is closed (T844170)`, function(assert) {
+            const initialValue = 1;
             const $element = $('#selectBox').dxSelectBox({
                 dataSource: [0, 1, 2],
-                value: 1,
+                value: initialValue,
                 opened: false,
                 onValueChanged: e => {
+                    assert.strictEqual(e.value, initialValue + delta, 'value is right');
                     assert.notEqual(e.event, undefined, 'e.event is defined');
                     assert.strictEqual(e.event.key, key, 'e.event.key is right');
                 }
@@ -4861,6 +4853,74 @@ QUnit.module('keyboard navigation', moduleSetup, () => {
         keyboard.keyDown('esc');
 
         assert.ok(handler.calledOnce, 'Children keyboard processor can process the \'esc\' key pressing');
+    });
+
+    QUnit.test('selectBox should raise valueChanged with keydown event as parameter when value is removed using backspace (T940489)', function(assert) {
+        const valueChangedHandler = sinon.stub();
+        const $element = $('#selectBox').dxSelectBox({
+            dataSource: [0, 1, 2],
+            value: 1,
+            onValueChanged: valueChangedHandler,
+            searchEnabled: true
+        });
+        const $input = $element.find(toSelector(TEXTEDITOR_INPUT_CLASS));
+        const keyboard = keyboardMock($input);
+
+        keyboard
+            .caret(1)
+            .press('backspace')
+            .blur();
+
+        assert.ok(valueChangedHandler.calledOnce, 'value has been changed');
+        const firstCallArgs = valueChangedHandler.getCall(0).args;
+        assert.ok(firstCallArgs[0].event, 'event is passed as parameter');
+        assert.strictEqual(firstCallArgs[0].event.type, 'keydown', 'event has correct type');
+        assert.strictEqual(firstCallArgs[0].event.key, 'Backspace', 'event key is correct');
+    });
+
+    QUnit.test('selectBox should raise valueChanged with keydown event as parameter when value is removed using delete (T940489)', function(assert) {
+        const valueChangedHandler = sinon.stub();
+        const $element = $('#selectBox').dxSelectBox({
+            dataSource: [0, 1, 2],
+            value: 1,
+            onValueChanged: valueChangedHandler,
+            searchEnabled: true
+        });
+        const $input = $element.find(toSelector(TEXTEDITOR_INPUT_CLASS));
+        const keyboard = keyboardMock($input);
+
+        keyboard
+            .caret(0)
+            .press('del')
+            .blur();
+
+        assert.ok(valueChangedHandler.calledOnce, 'value has been changed');
+        const firstCallArgs = valueChangedHandler.getCall(0).args;
+        assert.ok(firstCallArgs[0].event, 'event is passed as parameter');
+        assert.strictEqual(firstCallArgs[0].event.type, 'keydown', 'event has correct type');
+        assert.strictEqual(firstCallArgs[0].event.key, 'Delete', 'event key is correct');
+    });
+
+    QUnit.test('valueChanged should be raised with event=undefined as parameter when runtime change after input text editing', function(assert) {
+        const valueChangedHandler = sinon.stub();
+        const $element = $('#selectBox').dxSelectBox({
+            dataSource: [11, 22],
+            value: 11,
+            onValueChanged: valueChangedHandler,
+            searchEnabled: true
+        });
+        const instance = $element.dxSelectBox('instance');
+        const $input = $element.find(toSelector(TEXTEDITOR_INPUT_CLASS));
+        const keyboard = keyboardMock($input);
+
+        keyboard
+            .caret(0)
+            .press('del');
+
+        instance.option('value', 22);
+
+        const data = valueChangedHandler.getCall(0).args[0];
+        assert.strictEqual(data.event, undefined, 'event is undefined');
     });
 });
 

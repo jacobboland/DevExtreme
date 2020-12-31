@@ -1,15 +1,18 @@
 import { noop } from '../../core/utils/common';
 import DateBoxStrategy from './ui.date_box.strategy';
-import support from '../../core/utils/support';
+import { inputType } from '../../core/utils/support';
 import { inArray } from '../../core/utils/array';
 import dateUtils from './ui.date_utils';
 import dateSerialization from '../../core/utils/date_serialization';
+import { extend } from '../../core/utils/extend';
 
 const NativeStrategy = DateBoxStrategy.inherit({
 
     NAME: 'Native',
 
-    popupConfig: noop,
+    popupConfig: function(popupConfig) {
+        return extend({}, popupConfig, { width: 'auto' });
+    },
 
     getParsedText: function(text, format) {
         if(!text) {
@@ -44,7 +47,7 @@ const NativeStrategy = DateBoxStrategy.inherit({
 
         if(inArray(type, dateUtils.SUPPORTED_FORMATS) === -1) {
             type = 'date';
-        } else if(type === 'datetime' && !support.inputType(type)) {
+        } else if(type === 'datetime' && !inputType(type)) {
             type = 'datetime-local';
         }
 

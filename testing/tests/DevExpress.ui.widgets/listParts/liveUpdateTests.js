@@ -193,6 +193,40 @@ QUnit.module('live update', {
         assert.deepEqual(this.itemRenderedSpy.lastCall.args[0].itemData, pushData[1].data, 'check last updated item');
     });
 
+    QUnit.test('load new page by scrolling after updating an item (T937825)', function(assert) {
+        const list = this.createList({
+            pageLoadMode: 'scrollBottom',
+            height: 40,
+            displayExpr: 'text',
+            useNativeScrolling: false,
+            dataSource: {
+                paginate: true,
+                pageSize: 2,
+                pushAggregationTimeout: 0,
+                key: 'id',
+                store: [
+                    { id: 1, text: 'item1' },
+                    { id: 2, text: 'item2' },
+                    { id: 3, text: 'item3' },
+                    { id: 4, text: 'item4' },
+                    { id: 5, text: 'item5' }
+                ]
+            }
+        });
+        const store = list.getDataSource().store();
+
+        store.push([
+            {
+                type: 'update',
+                data: { text: 'itemN' },
+                key: 1
+            }
+        ]);
+        list.scrollTo(100);
+
+        assert.strictEqual(list.itemElements().length, 4, '2nd page is loaded');
+    });
+
     QUnit.test('push & repaintChangesOnly', function(assert) {
         const data = [{ a: 'Item 0', id: 0 }, { a: 'Item 1', id: 1 }];
         const list = this.createList({
@@ -571,5 +605,30 @@ QUnit.module('live update', {
 
         $('.dx-list-item:eq(0)').trigger('dxclick');
         assert.deepEqual(list.option('selectedItemKeys'), [1]);
+    });
+
+    QUnit.test('repaintChangesOnly, clear item selection after reload if key is not defined (T944954)', function(assert) {
+        const selectedItemSelector = '.dx-list-item-selected';
+
+        const list = this.createList({
+            dataSource: {
+                load: () => ([{ id: 1 }, { id: 2 }]),
+                key: null
+            },
+            repaintChangesOnly: true,
+            selectionMode: 'single'
+        });
+
+        list.selectItem(1);
+
+        assert.strictEqual(list.itemElements().filter(selectedItemSelector).length, 1, 'one selected item');
+        const $itemElements = list.itemElements();
+
+        list.getDataSource().reload();
+
+        assert.equal(list.itemElements().length, 2, 'item element count');
+        assert.strictEqual(list.itemElements().filter(selectedItemSelector).length, 0, 'no selected items');
+        assert.equal(list.itemElements().get(0), $itemElements.get(0), 'item element 0 is not rerenderd');
+        assert.notEqual(list.itemElements().get(1), $itemElements.get(1), 'item element 1 is rerenderd');
     });
 });

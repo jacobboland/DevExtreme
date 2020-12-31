@@ -1,7 +1,6 @@
 import $ from 'jquery';
 import legendModule, { Legend } from 'viz/components/legend';
-import { stubClass } from '../../helpers/vizMocks.js';
-import vizMocks from '../../helpers/vizMocks.js';
+import vizMocks, { stubClass } from '../../helpers/vizMocks.js';
 import rendererModule from 'viz/core/renderers/renderer';
 import titleModule from 'viz/core/title';
 import tooltipModule from 'viz/core/tooltip';
@@ -147,6 +146,8 @@ QUnit.module('Legend', {
             () => {
                 const stub = new stubLegend();
                 stub.stub('measure').returns([120, 120]);
+                stub.stub('getTemplatesGroups').returns([]);
+                stub.stub('getTemplatesDef').returns([]);
                 stub.stub('layoutOptions').returns({
                     horizontalAlignment: 'right',
                     verticalAlignment: 'top',

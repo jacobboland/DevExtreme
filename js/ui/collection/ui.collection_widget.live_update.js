@@ -3,7 +3,7 @@ import CollectionWidget from './ui.collection_widget.edit';
 import { extend } from '../../core/utils/extend';
 import { isDefined } from '../../core/utils/type';
 import { update, insert, indexByKey } from '../../data/array_utils';
-import { keysEqual } from '../../data/utils';
+import dataUtils from '../../data/utils';
 import { when } from '../../core/utils/deferred';
 import { findChanges } from '../../core/utils/array_compare';
 import domAdapter from '../../core/dom_adapter';
@@ -50,7 +50,7 @@ export default CollectionWidget.inherit({
         this.itemElements().each((_, item) => {
             const $item = $(item);
             const itemData = this._getItemData($item);
-            if(keyExpr ? keysEqual(keyExpr, this.keyOf(itemData), key) : this._isItemEquals(itemData, key)) {
+            if(keyExpr ? dataUtils.keysEqual(keyExpr, this.keyOf(itemData), key) : this._isItemEquals(itemData, key)) {
                 result = $item;
                 return false;
             }
@@ -66,11 +66,16 @@ export default CollectionWidget.inherit({
         if(item1 && item1[PRIVATE_KEY_FIELD]) {
             item1 = item1.data;
         }
+
         try {
             return JSON.stringify(item1) === JSON.stringify(item2);
         } catch(e) {
             return item1 === item2;
         }
+    },
+
+    _isItemStrictEquals: function(item1, item2) {
+        return this._isItemEquals(item1, item2);
     },
 
     _partialRefresh: function() {
@@ -81,7 +86,7 @@ export default CollectionWidget.inherit({
                 }
                 return this.keyOf(data);
             };
-            const result = findChanges(this._itemsCache, this._editStrategy.itemsGetter(), keyOf, this._isItemEquals);
+            const result = findChanges(this._itemsCache, this._editStrategy.itemsGetter(), keyOf, this._isItemStrictEquals.bind(this));
             if(result && this._itemsCache.length) {
                 this._modifyByChanges(result, true);
                 this._renderEmptyMessage();

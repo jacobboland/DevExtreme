@@ -182,9 +182,9 @@
                     'jquery': '@GetJQueryUrl()',
                     'knockout': '@Url.Content("~/node_modules/knockout/build/output/knockout-latest.debug.js")',
                     'angular': '@Url.Content("~/artifacts/js/angular.js")',
-                    'preact': '@Url.Content("~/artifacts/js/preact.js")',
-                    'preact/hooks': '@Url.Content("~/artifacts/js/hooks.js")',
-                    'preact/compat': '@Url.Content("~/artifacts/js/compat.js")',
+                    'preact': '@Url.Content("~/node_modules/preact/dist/preact.js")',
+                    'preact/hooks': '@Url.Content("~/node_modules/preact/hooks/dist/hooks.js")',
+                    'preact/compat': '@Url.Content("~/node_modules/preact/compat/dist/compat.js")',
                     'preact/test-utils': '@Url.Content("~/node_modules/preact/test-utils/dist/testUtils.js")',
                     'jszip': '@Url.Content("~/artifacts/js/jszip.js")',
                     'devextreme-quill': '@Url.Content("~/node_modules/devextreme-quill/dist/dx-quill.js")',
@@ -196,10 +196,8 @@
                     'turndown': '@Url.Content("~/node_modules/turndown/lib/turndown.browser.umd.js")',
                     'showdown': '@Url.Content("~/node_modules/showdown/dist/showdown.js")',
                     'rrule': '@Url.Content("~/node_modules/rrule/dist/es5/rrule.js")',
-                    'luxon': '@Url.Content("~/node_modules/luxon/build/global/luxon.min.js")',
-                    'es6-object-assign': '@Url.Content("~/node_modules/es6-object-assign")',
-                    // Global CSS
 
+                    // Global CSS
                     'common.css': '@Url.Content("~/artifacts/css/dx.common.css")',
 
                     'generic_light.css': '@Url.Content("~/artifacts/css/dx.light.css")',
@@ -224,10 +222,6 @@
                     },
                     'cldr': {
                         main: '../cldr.js',
-                        defaultExtension: 'js'
-                    },
-                    'es6-object-assign': {
-                        main: './index.js',
                         defaultExtension: 'js'
                     }
                 },

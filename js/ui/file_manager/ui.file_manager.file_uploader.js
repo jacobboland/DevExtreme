@@ -1,7 +1,6 @@
 import $ from '../../core/renderer';
 import { extend } from '../../core/utils/extend';
 import { Deferred } from '../../core/utils/deferred';
-import { isDefined } from '../../core/utils/type';
 import { hasWindow } from '../../core/utils/window';
 import Guid from '../../core/guid';
 
@@ -21,7 +20,6 @@ class FileManagerFileUploader extends Widget {
         this.$element().addClass(FILE_MANAGER_FILE_UPLOADER_CLASS);
 
         this._uploaderInfos = [];
-        this._dropZoneEnterCounter = 1;
 
         this._createInternalFileUploader();
         this._createDropZonePlaceholder();
@@ -47,6 +45,7 @@ class FileManagerFileUploader extends Widget {
             readyToUploadMessage: '',
             accept: '*',
             chunkSize,
+            dropZone: this.option('dropZone'),
             onValueChanged: e => this._onFileUploaderValueChanged(e),
             onProgress: e => this._onFileUploaderProgress(e),
             onUploaded: e => this._onFileUploaderUploaded(e),
@@ -69,7 +68,7 @@ class FileManagerFileUploader extends Widget {
     }
 
     tryUpload() {
-        const info = this._findAvailableUploaderInfo();
+        const info = this._findAndUpdateAvailableUploaderInfo();
         if(info) {
             info.fileUploader._selectButtonClickHandler();
         }
@@ -85,8 +84,7 @@ class FileManagerFileUploader extends Widget {
 
     _cancelUpload(sessionId, fileIndex) {
         const { fileUploader } = this._findUploaderInfoBySessionId(sessionId);
-        const files = isDefined(fileIndex) ? [ fileUploader._files[fileIndex] ] : fileUploader._files;
-        fileUploader._preventFilesUploading(files);
+        fileUploader.abortUpload(fileIndex);
     }
 
     _fileUploaderUploadChunk(fileUploader, file, chunksInfo) {
@@ -113,7 +111,7 @@ class FileManagerFileUploader extends Widget {
         this._uploadFiles(uploaderInfo, files);
 
         setTimeout(() => {
-            if(!this._findAvailableUploaderInfo()) {
+            if(!this._findAndUpdateAvailableUploaderInfo()) {
                 this._createInternalFileUploader();
             }
         });
@@ -179,22 +177,13 @@ class FileManagerFileUploader extends Widget {
     }
 
     _setDropZonePlaceholderVisible(visible) {
-        this._dropZoneEnterCounter += visible ? 1 : -1;
-        if(this._dropZoneEnterCounter < 0) {
-            this._resetDropZoneEnterCounter();
-        }
-        if(visible && this._dropZoneEnterCounter === 1) {
+        if(visible) {
             this._adjustDropZonePlaceholder();
             this._$dropZonePlaceholder.css('display', '');
-            return;
-        }
-        if(!visible && this._dropZoneEnterCounter === 0) {
+
+        } else {
             this._$dropZonePlaceholder.css('display', 'none');
         }
-    }
-
-    _resetDropZoneEnterCounter() {
-        this._dropZoneEnterCounter = 0;
     }
 
     _uploadFiles(uploaderInfo, files) {
@@ -215,7 +204,7 @@ class FileManagerFileUploader extends Widget {
         this._raiseUploadSessionStarted(sessionInfo);
 
         return whenSome(deferreds).always(() => setTimeout(() => {
-            uploaderInfo.fileUploader.option('value', []);
+            uploaderInfo.fileUploader.reset();
             uploaderInfo.session = null;
         }));
     }
@@ -245,14 +234,17 @@ class FileManagerFileUploader extends Widget {
         return null;
     }
 
-    _findAvailableUploaderInfo() {
+    _findAndUpdateAvailableUploaderInfo() {
+        let info = null;
         for(let i = 0; i < this._uploaderInfos.length; i++) {
-            const info = this._uploaderInfos[i];
-            if(!info.session) {
-                return info;
+            const currentInfo = this._uploaderInfos[i];
+            currentInfo.fileUploader.option('dropZone', '');
+            if(!info && !currentInfo.session) {
+                info = currentInfo;
             }
         }
-        return null;
+        info?.fileUploader.option('dropZone', this.option('dropZone'));
+        return info;
     }
 
     _findUploaderInfo(fileUploader) {
@@ -305,9 +297,8 @@ class FileManagerFileUploader extends Widget {
                 this._actions[name] = this._createActionByOption(name);
                 break;
             case 'dropZone':
-                this._uploaderInfos[0].fileUploader.option('dropZone', args.value);
+                this._findAndUpdateAvailableUploaderInfo();
                 this._adjustDropZonePlaceholder();
-                this._resetDropZoneEnterCounter();
                 break;
             case 'dropZonePlaceholderContainer':
                 this._$dropZonePlaceholder.detach();

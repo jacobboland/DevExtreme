@@ -1523,3 +1523,82 @@ QUnit.test('Appointments should be rendered correctly if agenda view is set as o
     assert.equal($appointments.first().position().top, 0, 'appointment position is OK');
     assert.equal($appointments.last().position().top, 240, 'appointment position is OK');
 });
+
+QUnit.test('Long appointment should not affect render the next appointment', function(assert) {
+    const data = [{
+        text: 'Long',
+        startDate: new Date(2020, 9, 1, 21, 15),
+        endDate: new Date(2020, 9, 2, 9, 15)
+    }, {
+        text: 'Simple',
+        startDate: new Date(2020, 9, 4, 21, 16),
+        endDate: new Date(2020, 9, 4, 22)
+    }];
+
+    this.createInstance({
+        currentView: 'agenda',
+        currentDate: new Date(2020, 9, 1),
+        startDayHour: 9,
+        dataSource: data
+    });
+
+    const items = this.instance._appointments.option('items');
+
+    let settings = items[0].itemData.settings;
+    assert.deepEqual(settings.startDate, data[0].startDate, 'Long item part 0 settings startDate is correct');
+    assert.deepEqual(settings.endDate, new Date(2020, 9, 2, 0, 0), 'Long item part 0 settings endDate is correct');
+
+    settings = items[1].itemData.settings;
+    assert.deepEqual(settings.startDate, new Date(2020, 9, 2, 9, 0), 'Long item part 1 settings startDate is correct');
+    assert.deepEqual(settings.endDate, new Date(2020, 9, 2, 9, 15), 'Long item part 1 settings endDate is correct');
+
+    settings = items[2].itemData.settings;
+    assert.notOk(items[2].itemData.settings, 'Simple item settings are empty');
+
+    const { itemData } = items[2];
+    assert.deepEqual(itemData.startDate, data[1].startDate, 'Simple item startDate is correct');
+    assert.deepEqual(itemData.endDate, data[1].endDate, 'Simple item endDate is correct');
+});
+
+QUnit.test('Several days appointment should be rendered correctly if startDayHour is set', function(assert) {
+    const data = [{
+        startDate: new Date(2016, 1, 24, 1),
+        endDate: new Date(2016, 1, 24, 1, 30)
+    }, {
+        startDate: new Date(2016, 1, 24, 7),
+        endDate: new Date(2016, 1, 24, 7, 30)
+    }, {
+        startDate: new Date(2016, 1, 24, 9),
+        endDate: new Date(2016, 1, 26, 9, 30)
+    }];
+
+    this.createInstance({
+        views: ['agenda'],
+        currentView: 'agenda',
+        currentDate: new Date(2016, 1, 24),
+        startDayHour: 8,
+        dataSource: data
+    });
+
+    const filteredItems = this.instance.getFilteredItems();
+
+    assert.equal(filteredItems.length, 1, 'Filtered items amount is correct');
+    assert.deepEqual(filteredItems[0], data[2], 'Filtered item is correct');
+
+    const appointments = this.instance.getAppointmentsInstance();
+    const $itemElements = appointments.itemElements();
+
+    assert.deepEqual($itemElements.length, 3, 'Appointment elements amount is correct');
+
+    // TODO: filtered items should not have settings due to it is a filtered dataSource items.
+    filteredItems.forEach(item => item.settings = null);
+
+    const renderingStrategy = this.instance.getLayoutManager().getRenderingStrategyInstance();
+    const itemPositions = renderingStrategy.createTaskPositionMap(filteredItems);
+
+    assert.equal(itemPositions.length, 3, 'Item positions amount is correct');
+    itemPositions.forEach((itemPosition, index) => {
+        assert.equal(itemPosition[0].sortedIndex, index, `Item ${index} sortIndex is correct`);
+        assert.equal(itemPosition[0].groupIndex, 0, 'Item groupIndex is correct');
+    });
+});
